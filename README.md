@@ -1,5 +1,7 @@
 # Rehearse
 
+[![CI](https://github.com/Pastalikek65/rehearse/actions/workflows/ci.yml/badge.svg)](https://github.com/Pastalikek65/rehearse/actions/workflows/ci.yml)
+
 Test a self-hosted application upgrade from a backup, compare its data, and prove that the old backup still restores.
 
 Rehearse is a local Go CLI for maintainers who want evidence before an upgrade. It restores your supplied backup into three fresh environments: the current application, the upgraded application, and a clean recovery instance of the old application. It writes a JSON/HTML report and removes only resources it can prove it owns.
@@ -9,6 +11,8 @@ Rehearse is a local Go CLI for maintainers who want evidence before an upgrade. 
 ## Install
 
 Portable archives are published on the [releases page](https://github.com/Pastalikek65/rehearse/releases). Extract the archive for your platform and run `./rehearse --help` on Linux or `.\rehearse.exe --help` in Windows PowerShell. Archives are unsigned; compare their SHA-256 values with the release checksums. Docker and Compose remain external prerequisites.
+
+The [0.1 MVP preview](https://github.com/Pastalikek65/rehearse/releases/tag/v0.1.0) includes an actual synthetic [HTML result](https://github.com/Pastalikek65/rehearse/releases/download/v0.1.0/example-report.html), JSON result and archive verification evidence. A passing result records 23 separate checks, including old-backup recovery; read the scope in [support](docs/support.md).
 
 Build from this checkout with Go 1.27:
 

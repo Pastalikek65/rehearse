@@ -4,6 +4,8 @@ Rehearse, kendi sunucunda kullandığın uygulamanın güncellemesini **sağlad�
 
 Go 1.27 ile Windows üzerinde derle:
 
+Hazır paket için [v0.1 önizleme sürümünü](https://github.com/Pastalikek65/rehearse/releases/tag/v0.1.0) aç. Windows ZIP veya Linux tar.gz dosyasını çıkar; `SHA256SUMS` ile dosyanın özetini karşılaştır. Paketler imzasızdır. Aşağıdaki `bin/` komutları kaynak koddan derleme içindir; hazır pakette Windows için `.\rehearse.exe`, Linux için `./rehearse` kullan. Sürümdeki `verification.json` tam o arşivin kabul kanıtını, örnek HTML/JSON raporları gerçek sentetik prova sonucunu gösterir.
+
 ```powershell
 New-Item -ItemType Directory -Force bin | Out-Null
 go build -trimpath -o bin/rehearse.exe ./cmd/rehearse

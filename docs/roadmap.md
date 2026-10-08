@@ -4,7 +4,7 @@
 
 Miniflux 2.2.19 → 2.3.3 rehearsal from a custom PostgreSQL archive, three independent restore environments, fixed API/data checks, private local state, JSON/HTML reports, and ownership-checked cleanup.
 
-Before publishing the preview: independently review the implementation, demonstrate a real migration failure, qualify the native CLI on Windows/WSL and Linux, publish the synthetic example and test evidence.
+Preview preparation completed: independent implementation review, a real known-bad migration negative control, native Windows/WSL and Linux-in-WSL rehearsal tests, the synthetic archive and source CI evidence. Every release archive must separately pass post-build acceptance before publication; the release's `verification.json` identifies that immutable artifact and its results. The MVP remains an evaluation preview, not production v1.
 
 ## Beta
 
