@@ -922,6 +922,16 @@ func (s *Store) RecoverBackup(ctx context.Context, lock *RunLock, source string)
 // OpenVerifiedBackup opens the persisted backup, hashes and sizes that open
 // descriptor, then rewinds that same descriptor for the restore stream.
 func (s *Store) OpenVerifiedBackup(id string) (*os.File, error) {
+	return s.OpenVerifiedBackupContext(context.Background(), id)
+}
+
+// OpenVerifiedBackupContext checks cancellation between bounded reads while
+// retaining and rewinding the same descriptor. An in-flight filesystem read
+// still depends on the host filesystem returning.
+func (s *Store) OpenVerifiedBackupContext(ctx context.Context, id string) (*os.File, error) {
+	if ctx == nil || ctx.Err() != nil {
+		return nil, code("CANCELED")
+	}
 	run, err := s.Load(id)
 	if err != nil {
 		return nil, err
@@ -944,7 +954,11 @@ func (s *Store) OpenVerifiedBackup(id string) (*os.File, error) {
 		return nil, code("BACKUP_INTEGRITY_FAILED")
 	}
 	h := sha256.New()
-	n, err := io.Copy(h, io.LimitReader(f, run.Backup.Bytes+1))
+	n, err := io.Copy(h, io.LimitReader(cancellableReader{ctx: ctx, r: f}, run.Backup.Bytes+1))
+	if ctx.Err() != nil {
+		f.Close()
+		return nil, code("CANCELED")
+	}
 	if err != nil || n != run.Backup.Bytes || hex.EncodeToString(h.Sum(nil)) != run.Backup.SHA256 {
 		f.Close()
 		return nil, code("BACKUP_INTEGRITY_FAILED")

@@ -11,8 +11,9 @@ Preview preparation completed: independent implementation review, a real known-b
 - Diagnose and recover interrupted runs without guessing resource ownership.
 - Add local run history and machine-readable CI usage.
 - Exercise cancellation, process interruption, malformed/large input, source stability and negative controls.
+- Development source now checks cancellation during staged/source hashing and rechecks the source after cleanup; regression and independent review evidence precede the next beta release.
 - Measure time and memory on documented synthetic datasets.
-- Produce installation archives and validate their primary workflow in clean environments.
+- Repeat clean-profile installation and primary-workflow acceptance for each future beta archive.
 
 ## Production v1
 

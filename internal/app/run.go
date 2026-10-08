@@ -200,22 +200,6 @@ func runWithRuntime(ctx context.Context, cfg spec.Config, store *state.Store, cl
 	var staged *state.Backup
 	cleanupDone := false
 	defer func() {
-		if staged != nil {
-			unchanged, readErr := sourceUnchanged(*staged)
-			if readErr != nil {
-				_ = result.Set("source.unchanged", "failed", "OPERATION_FAILED")
-				if returnErr == nil {
-					returnErr = code("OPERATION_FAILED")
-				}
-			} else if !unchanged {
-				_ = result.Set("source.unchanged", "failed", "SOURCE_CHANGED")
-				if returnErr == nil {
-					returnErr = code("SOURCE_CHANGED")
-				}
-			} else {
-				_ = result.Set("source.unchanged", "passed", "VALIDATED")
-			}
-		}
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 		defer cancel()
 		latest, loadErr := store.Load(intent.ID)
@@ -226,11 +210,31 @@ func runWithRuntime(ctx context.Context, cfg spec.Config, store *state.Store, cl
 		cleanupDone = cleanupErr == nil
 		if cleanupErr != nil {
 			_ = result.Set("cleanup.ownership", "failed", "CLEANUP_HELD")
-			if returnErr == nil {
-				returnErr = code("CLEANUP_HELD")
-			}
 		} else {
 			_ = result.Set("cleanup.ownership", "passed", "VALIDATED")
+		}
+		if staged != nil {
+			unchanged, readErr := sourceUnchangedContext(ctx, *staged)
+			if readErr != nil {
+				failureCode := "OPERATION_FAILED"
+				if ctx.Err() != nil {
+					failureCode = "CANCELED"
+				}
+				_ = result.Set("source.unchanged", "failed", failureCode)
+				if returnErr == nil {
+					returnErr = code(failureCode)
+				}
+			} else if !unchanged {
+				_ = result.Set("source.unchanged", "failed", "SOURCE_CHANGED")
+				if returnErr == nil {
+					returnErr = code("SOURCE_CHANGED")
+				}
+			} else {
+				_ = result.Set("source.unchanged", "passed", "VALIDATED")
+			}
+		}
+		if cleanupErr != nil && returnErr == nil {
+			returnErr = code("CLEANUP_HELD")
 		}
 		finished := time.Now().UTC()
 		result.FinishedAt = &finished
@@ -584,7 +588,7 @@ func decodeEntryResult(raw []byte, userID int64, expectedStatus string, starred 
 }
 
 func inspectArchive(ctx context.Context, client runtimeClient, store *state.Store, run state.Run, phase string) error {
-	backup, err := store.OpenVerifiedBackup(run.ID)
+	backup, err := store.OpenVerifiedBackupContext(ctx, run.ID)
 	if err != nil {
 		return code("BACKUP_FAILED")
 	}
@@ -596,7 +600,7 @@ func inspectArchive(ctx context.Context, client runtimeClient, store *state.Stor
 }
 
 func restoreArchive(ctx context.Context, client runtimeClient, store *state.Store, run state.Run, phase string) error {
-	backup, err := store.OpenVerifiedBackup(run.ID)
+	backup, err := store.OpenVerifiedBackupContext(ctx, run.ID)
 	if err != nil {
 		return code("RESTORE_FAILED")
 	}
@@ -841,7 +845,22 @@ func setSnapshot(r *report.Report, phase string, value miniflux.FingerprintResul
 	r.Snapshots[phase] = report.Snapshot{SHA256: value.SHA256, Rows: value.Rows, Bytes: value.Bytes}
 }
 
-func sourceUnchanged(backup state.Backup) (bool, error) {
+type backupContextReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r backupContextReader) Read(p []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.reader.Read(p)
+}
+
+func sourceUnchangedContext(ctx context.Context, backup state.Backup) (bool, error) {
+	if ctx == nil || ctx.Err() != nil {
+		return false, code("CANCELED")
+	}
 	info, err := os.Lstat(backup.SourcePath)
 	if err != nil {
 		return false, code("OPERATION_FAILED")
@@ -862,7 +881,10 @@ func sourceUnchanged(backup state.Backup) (bool, error) {
 		return false, nil
 	}
 	hash := sha256.New()
-	n, err := io.Copy(hash, io.LimitReader(f, state.MaxBackupBytes+1))
+	n, err := io.Copy(hash, io.LimitReader(backupContextReader{ctx: ctx, reader: f}, state.MaxBackupBytes+1))
+	if ctx.Err() != nil {
+		return false, code("CANCELED")
+	}
 	if err != nil {
 		return false, code("OPERATION_FAILED")
 	}

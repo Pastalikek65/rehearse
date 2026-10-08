@@ -24,7 +24,7 @@ These checks concern the supplied backup and supported adapter. They do not test
 - API responses are bounded to 8 MiB. Data projections are bounded to 1 GiB total and 4 MiB per row. Exceeding a limit fails the corresponding check.
 - Windows requires an explicit WSL2 distribution and inherited private ACLs on the per-user state directory. No Windows power-loss durability guarantee is made.
 - Process locks are never silently considered stale. Abnormal termination currently requires checking the recorded process before removing that exact lock directory. Automatic lock recovery is planned.
-- Verifying staged/original backup hashes is bounded by the file-size limit but is not currently cancellable mid-hash. On large files, cancellation can wait for that local read before cleanup begins.
+- In the released 0.1.0 preview, staged/original backup hashes are bounded by the file-size limit but are not cancellable mid-hash. Current development source checks cancellation between bounded reads and performs the final source rehash after its independent cleanup attempt. Cancellation cannot interrupt a filesystem read already blocked inside the operating system. These development changes are not part of the immutable 0.1.0 packages.
 - Local state retains the staged backup after resources are cleaned. Remove the exact completed run directory when you no longer need its evidence and private backup.
 - Outbound isolation has been tested against controlled HTTP, DNS and direct-IP targets. It is not a universal protocol or hostile-container security claim.
 - No Forgejo adapter, user pilots, adoption statistics or v1 certification is claimed at this stage.
