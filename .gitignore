@@ -1,0 +1,6 @@
+/artifacts/
+/bin/
+/release/
+*.exe
+/rehearse
+__pycache__/

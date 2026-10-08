@@ -1,0 +1,85 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  source:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - run: go test -count=1 ./...
+      - run: go vet ./...
+      - run: python -m unittest discover -s scripts -p "test_*.py"
+      - name: Race detector
+        if: runner.os == 'Linux'
+        run: go test -race -count=1 ./...
+      - run: go build -trimpath ./cmd/rehearse
+  linux-rehearsal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Verify disposable runner engine
+        run: |
+          docker --host unix:///var/run/docker.sock version
+          docker --host unix:///var/run/docker.sock compose version
+      - name: Build portable Linux package
+        run: python scripts/package.py --version 0.1.0 --os linux
+      - name: Real Miniflux baseline, migration and recovery
+        env:
+          REHEARSE_TEST_LINUX: disposable
+        shell: bash
+        run: |
+          set -euo pipefail
+          export REHEARSE_TEST_BACKUP="$PWD/examples/miniflux/miniflux-source-125.dump"
+          go test -count=1 -v ./internal/app -run '^TestCompleteMinifluxRehearsalOnExplicitDisposableLinuxRuntime$' -timeout 20m | tee linux-rehearsal.log
+      - name: Extracted package acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rehearse-package"
+          tar -xzf release/rehearse-0.1.0-linux-amd64.tar.gz -C "$RUNNER_TEMP/rehearse-package"
+          cd "$RUNNER_TEMP/rehearse-package/rehearse-0.1.0-linux-amd64"
+          export XDG_CONFIG_HOME="$RUNNER_TEMP/rehearse-package-profile"
+          export REHEARSE_EXAMPLE_USER=rehearse-fixture
+          export REHEARSE_EXAMPLE_PASSWORD=synthetic-fixture-password
+          test "$(./rehearse --version)" = 'rehearse 0.1.0'
+          ./rehearse plan --json examples/miniflux/rehearse.json
+          ./rehearse run examples/miniflux/rehearse.json | tee "$GITHUB_WORKSPACE/linux-cli-acceptance.log"
+          run_id=$(sed -n 's/^Run: \([a-f0-9]\{32\}\)$/\1/p' "$GITHUB_WORKSPACE/linux-cli-acceptance.log")
+          test "${#run_id}" -eq 32
+          ./rehearse report --format json "$run_id" > "$GITHUB_WORKSPACE/linux-cli-report.json"
+          ./rehearse report --format html "$run_id" > "$GITHUB_WORKSPACE/linux-cli-report.html"
+          python -c 'import json, os; r=json.load(open(os.environ["GITHUB_WORKSPACE"]+"/linux-cli-report.json")); assert r["outcome"]=="passed"; assert len(r["checks"])==23; assert all(c["status"]=="passed" for c in r["checks"])'
+          ./rehearse cleanup "$run_id"
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: linux-rehearsal-evidence
+          path: |
+            linux-rehearsal.log
+            linux-cli-acceptance.log
+            linux-cli-report.json
+            linux-cli-report.html
+            release/*
+          if-no-files-found: error

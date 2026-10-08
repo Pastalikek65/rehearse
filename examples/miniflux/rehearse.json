@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "adapter": "miniflux",
+  "sourceVersion": "2.2.19",
+  "targetVersion": "2.3.3",
+  "postgresVersion": "17.11",
+  "backupPath": "./miniflux-source-125.dump",
+  "authEnvRefs": {
+    "username": "REHEARSE_EXAMPLE_USER",
+    "password": "REHEARSE_EXAMPLE_PASSWORD"
+  }
+}

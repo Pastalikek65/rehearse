@@ -1,0 +1,30 @@
+# Support and limitations
+
+This is a development preview. A source test passing does not qualify a downloadable package or every installation of a platform.
+
+| Environment | Requirement | Current evidence |
+| --- | --- | --- |
+| Windows x64 | Explicit WSL2 distribution; Linux amd64 Docker Engine 28+ and Compose inside it | Native Windows Go process completed the three-phase Miniflux rehearsal on a disposable Ubuntu 24.04 WSL2 engine. Package acceptance is pending. |
+| Linux x64 | Local Docker Unix socket; Engine 28+ and Compose | Unit/build support exists. Native rehearsal and package qualification are pending. |
+| Other architectures, remote Docker endpoints | Unsupported | No qualification claimed. |
+
+The supported application pair is Miniflux 2.2.19 → 2.3.3 with PostgreSQL 17.11. Images are pinned by digest. Version parsing does not imply that other syntactically valid versions are supported.
+
+## What a passing result covers
+
+The selected backup restores into fresh baseline and target environments. Retained core data has the same streamed projection digest. Expected removed-entry conversion is checked separately. Authenticated read-only API calls succeed with structurally valid responses; anonymous access is rejected. The original backup restores into a fresh old-version recovery environment. The source remains unchanged, and owned resources are cleaned.
+
+These checks concern the supplied backup and supported adapter. They do not test production configuration, integrations, RSS fetching, every account's credentials, or production traffic. The runner never connects to your production Miniflux instance.
+
+## Current limits
+
+- PostgreSQL custom-format backups only, with a 128 GiB input limit. Archive size does not predict restored disk usage.
+- API responses are bounded to 8 MiB. Data projections are bounded to 1 GiB total and 4 MiB per row. Exceeding a limit fails the corresponding check.
+- Windows requires an explicit WSL2 distribution and inherited private ACLs on the per-user state directory. No Windows power-loss durability guarantee is made.
+- Process locks are never silently considered stale. Abnormal termination currently requires checking the recorded process before removing that exact lock directory. Automatic lock recovery is planned.
+- Verifying staged/original backup hashes is bounded by the file-size limit but is not currently cancellable mid-hash. On large files, cancellation can wait for that local read before cleanup begins.
+- Local state retains the staged backup after resources are cleaned. Remove the exact completed run directory when you no longer need its evidence and private backup.
+- Outbound isolation has been tested against controlled HTTP, DNS and direct-IP targets. It is not a universal protocol or hostile-container security claim.
+- No Forgejo adapter, user pilots, adoption statistics or v1 certification is claimed at this stage.
+
+Reports require completed finalization and a matching JSON/HTML pair. A report/state/lock error makes the CLI exit nonzero and prevents it from advertising a completed passing result. Linux directory-sync errors after a filesystem operation are a durability uncertainty; the preview does not claim transactional power-loss recovery.
