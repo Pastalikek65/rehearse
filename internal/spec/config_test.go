@@ -184,7 +184,7 @@ func TestParseRejectsUnsupportedSchemaAdapterAndPostgresVersion(t *testing.T) {
 		code string
 	}{
 		{name: "schema version", from: `"schemaVersion":1`, to: `"schemaVersion":2`, code: "SCHEMA_VERSION_UNSUPPORTED"},
-		{name: "adapter", from: `"adapter":"miniflux"`, to: `"adapter":"forgejo"`, code: "ADAPTER_UNSUPPORTED"},
+		{name: "adapter", from: `"adapter":"miniflux"`, to: `"adapter":"custom"`, code: "ADAPTER_UNSUPPORTED"},
 		{name: "postgres version", from: `"postgresVersion":"17.11"`, to: `"postgresVersion":"17.10"`, code: "POSTGRES_VERSION_UNSUPPORTED"},
 	}
 	for _, tt := range tests {

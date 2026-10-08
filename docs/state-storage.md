@@ -1,9 +1,11 @@
 # Run state and backup recovery
 
 The state store contains per-run intent, process ownership locks, and a private
-staged copy of the selected PostgreSQL custom-format backup. It is local
-rehearsal state; it is not a Docker ownership proof and it does not authorize a
-resource deletion by itself.
+staged copy of the selected adapter backup. Miniflux uses a PostgreSQL
+custom-format dump; the development Forgejo adapter uses its offline ZIP
+archive. Forgejo qualification is pending, and it is not part of the immutable
+public v0.1 release. This remains local rehearsal state; it is not a Docker
+ownership proof and it does not authorize a resource deletion by itself.
 
 ## State directory
 
@@ -37,7 +39,10 @@ token. An existing lock is never treated as stale or automatically adopted.
 `Store.InspectRunLock` exposes the recorded host and process metadata for
 diagnosis but does not clear the lock. If a process exits abnormally, an
 operator must verify that the recorded process is no longer running on the
-recorded host before manually removing only that run's `run.lock` directory.
+recorded host before recovering that run. The current development checkout
+provides `rehearse recover RUN_ID` for a verified dead local lock; public v0.1
+does not include that command. Recovery leaves Docker resources for separate
+cleanup.
 If the metadata is missing or invalid, fail closed and verify the run manually
 before removing the exact lock directory. Do not remove a lock while its
 process may still be active.
@@ -50,9 +55,12 @@ cleanup action.
 
 ## Staging and recovering a backup
 
-`StageBackup` copies the original into `backup.partial`, checks the custom
-archive header and source stability, and computes SHA-256 and byte count. It
-then saves a `pendingBackup` record before renaming the partial file to
+`StageBackup` copies the original into `backup.partial`, checks the selected
+adapter's expected archive header and source stability, and computes SHA-256
+and byte count. The copy and both saved backup records enforce the selected
+adapter's bound: 128 GiB for Miniflux and 2 GiB for Forgejo. Growth after the
+initial size check cannot bypass that bound; a failed copy removes its partial.
+It then saves a `pendingBackup` record before renaming the partial file to
 `backup.dump`. Finally it commits `backup` and clears `pendingBackup`. This
 ordering makes both process interruption points recoverable.
 
@@ -80,6 +88,14 @@ same descriptor for streaming. The caller must stream from the returned file
 handle and close it after restore; do not re-open the path after verification.
 The digest detects accidental changes and corrupted state, not malicious
 changes by the trusted account that owns the rehearsal directory.
+
+In the current development checkout, `rehearse history [--limit N] [--json]`
+prints bounded run metadata, and `rehearse recover RUN_ID` attempts only a
+verified dead-process lock recovery. If recovery succeeds, use
+`rehearse cleanup [--wsl-distro NAME] RUN_ID` separately when appropriate;
+recovery does not resume a run or remove Docker resources. `history` and
+`recover` are not in public v0.1; `cleanup` is. See [history and recovery](history-recovery.md)
+for their limits and exact behavior.
 
 ## Safe error handling
 

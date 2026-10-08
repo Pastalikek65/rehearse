@@ -1,6 +1,6 @@
 # Türkçe hızlı başlangıç
 
-Rehearse, kendi sunucunda kullandığın uygulamanın güncellemesini **sağladığın yedekten oluşturulan ayrı ortamlarda** dener. Şimdilik Miniflux 2.2.19 → 2.3.3 ve PostgreSQL 17.11 desteklenir. Geliştirme önizlemesidir; kararlı v1 sürümü henüz yayımlanmadı.
+Rehearse, kendi sunucunda kullandığın uygulamanın güncellemesini **sağladığın yedekten oluşturulan ayrı ortamlarda** dener. Yayımlanmış değişmez v0.1 paketleri yalnız Miniflux 2.2.19 → 2.3.3 ve PostgreSQL 17.11 sürümlerini destekler. Geliştirme kaynak kodunda Forgejo bağdaştırıcısı ile `archive`, `history` ve `recover` komutları da vardır; Forgejo tam sentetik-fixture doğrulaması beklemededir, v0.1 paketinde değildir ve hazır Forgejo fixture'ı sunulduğu anlamına gelmez. Kararlı v1 henüz yayımlanmadı.
 
 Go 1.27 ile Windows üzerinde derle:
 
@@ -40,3 +40,5 @@ Linux'ta aynı komutları `./bin/rehearse` ile çalıştır. HTML çıktısını
 Kendi yedeğin için örnek JSON'u kopyala. PostgreSQL custom-format `.dump` dosyasını ve mevcut Miniflux hesabının ortam değişkeni referanslarını belirt. Parolayı JSON'a yazma. Yerel durum dizini özel yedek kopyası içerir; hesabına özel tut.
 
 Destek sınırları için [support.md](support.md), kesinti ve temizlik için [state-storage.md](state-storage.md) dosyasını oku. Üretim volume'larını araca verme.
+
+Geliştirme kaynak kodundaki Forgejo yapılandırma/arsiv sözleşmesi için [Forgejo bağdaştırıcısı](forgejo-adapter.md), geçmiş ve kurtarma komutlarının sınırları için [history-recovery.md](history-recovery.md) sayfalarına bak. Bu bilgiler Forgejo'nun v0.1'de desteklendiği anlamına gelmez.

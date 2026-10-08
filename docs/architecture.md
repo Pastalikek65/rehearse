@@ -2,7 +2,7 @@
 
 Rehearse is a trusted local Go runner. It streams a supplied PostgreSQL custom-format backup into fresh Docker resources, starts a pinned application version, measures data and authenticated API behavior, and writes a local report. It never runs against an existing database or edits the source backup.
 
-The first supported rehearsal is Miniflux 2.2.19 to 2.3.3 on PostgreSQL 17.11, Linux amd64 containers. Support for another pair requires adapter review and a real fixture test; accepting an arbitrary tag would bypass that contract. Forgejo is a later v1 task.
+The public v0.1 rehearsal supports Miniflux 2.2.19 to 2.3.3 on PostgreSQL 17.11, Linux amd64 containers. Development source also implements a closed Forgejo 15.0.9 to 16.0.5 contract; its complete fixture qualification remains pending. Support for another pair requires adapter review and a real fixture test; accepting an arbitrary tag would bypass that contract.
 
 ## Packages
 
@@ -10,10 +10,13 @@ The first supported rehearsal is Miniflux 2.2.19 to 2.3.3 on PostgreSQL 17.11, L
 - `internal/state`: private installation identity, durable run intents, staged backup and local history. Run IDs are random lowercase 32-character hexadecimal values. Resources have deterministic names and owner/run/kind labels.
 - `internal/engine`: fixed Compose generation, Docker capability/identity checks, bounded subprocess operations and live ownership inspection. No user Compose, image, mount, command or Docker arguments are accepted.
 - `internal/miniflux`: pinned images, database projections, expected migration transformations and fixed API checks. It supplies observations, never deletes Docker resources.
-- `internal/report`: version-one check results, safe JSON and escaped HTML. Each check is `passed`, `failed` or `not-run`; readiness alone cannot pass a rehearsal.
-- `cmd/rehearse`: `plan`, `run`, `report`, `cleanup` and signal handling.
+- `internal/forgejo`: strict offline ZIP/TAR validation, pinned versions, migration trackers, global user/repository projections, Git-file fingerprints and fixed read-only API contracts.
+- `internal/report`: legacy Miniflux schema 1 and Forgejo schema 2, safe JSON and escaped HTML. Each check is `passed`, `failed` or `not-run`; readiness alone cannot pass a rehearsal.
+- `cmd/rehearse`: `plan`, `run`, `report`, `cleanup`, development `archive`, `history`, `recover`, and signal handling.
 
 The runner creates a baseline environment, a separate target environment and a fresh old-version recovery environment from the same staged backup. The target is never downgraded. Each phase has a fresh volume, internal network and fixed database, migration, application and probe containers. No application ports are published. API probes run inside the phase network, with authentication passed over stdin rather than command arguments.
+
+Forgejo adds a separately owned data volume and a never-started, networkless data-restore helper. The runner validates the full archive before copying, generates its own private configuration, and stops the application cleanly before measuring database and Git-file projections. It streams volume data into the bounded projector without saving generated secrets to reports. [Forgejo's contract](forgejo-adapter.md) defines the limited coverage and unsupported storage.
 
 ## Ownership and interruption
 

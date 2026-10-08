@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"github.com/Pastalikek65/rehearse/internal/forgejo"
 	"github.com/Pastalikek65/rehearse/internal/miniflux"
 	"github.com/Pastalikek65/rehearse/internal/spec"
 	"github.com/Pastalikek65/rehearse/internal/state"
@@ -21,6 +22,7 @@ type Plan struct {
 	PostgresVersion  string   `json:"postgresVersion"`
 	BackupBytes      int64    `json:"backupBytes"`
 	ArchiveValidated bool     `json:"archiveValidated"`
+	ValidationNote   string   `json:"validationNote,omitempty"`
 	Phases           []string `json:"phases"`
 	Images           []string `json:"images"`
 	ResourceCount    int      `json:"resourceCount"`
@@ -32,7 +34,7 @@ type Plan struct {
 // BuildPlan is read-only and offline. Recognizing a custom-format header does
 // not establish archive validity: pg_restore inspection happens during run.
 func BuildPlan(ctx context.Context, cfg spec.Config) (Plan, error) {
-	if ctx.Err() != nil {
+	if ctx == nil || ctx.Err() != nil {
 		return Plan{}, code("CANCELED")
 	}
 	if err := spec.Validate(cfg); err != nil {
@@ -42,7 +44,11 @@ func BuildPlan(ctx context.Context, cfg spec.Config) (Plan, error) {
 	if err != nil || !info.Mode().IsRegular() {
 		return Plan{}, code("BACKUP_NOT_REGULAR")
 	}
-	if info.Size() > state.MaxBackupBytes {
+	maxBytes := state.MaxBackupBytes
+	if cfg.Adapter == "forgejo" {
+		maxBytes = forgejo.MaxArchiveBytes
+	}
+	if info.Size() > maxBytes {
 		return Plan{}, code("BACKUP_TOO_LARGE")
 	}
 	f, err := os.Open(cfg.BackupPath)
@@ -51,8 +57,20 @@ func BuildPlan(ctx context.Context, cfg spec.Config) (Plan, error) {
 	}
 	defer f.Close()
 	opened, err := f.Stat()
-	if err != nil || !opened.Mode().IsRegular() {
+	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(info, opened) {
 		return Plan{}, code("BACKUP_NOT_REGULAR")
+	}
+	if opened.Size() > maxBytes {
+		return Plan{}, code("BACKUP_TOO_LARGE")
+	}
+	if cfg.Adapter == "forgejo" {
+		if _, err := forgejo.OpenArchive(ctx, f, opened.Size()); err != nil {
+			if ctx.Err() != nil {
+				return Plan{}, code("CANCELED")
+			}
+			return Plan{}, code("BACKUP_FORMAT_UNSUPPORTED")
+		}
+		return Plan{SchemaVersion: 1, Adapter: cfg.Adapter, SourceVersion: cfg.SourceVersion, TargetVersion: cfg.TargetVersion, PostgresVersion: cfg.PostgresVersion, BackupBytes: opened.Size(), ArchiveValidated: false, ValidationNote: "ZIP manifest, member hashes and data TAR were verified offline. PostgreSQL dump validity, source schema, data consistency and application behavior require run.", Phases: []string{"baseline", "target", "recovery"}, Images: []string{forgejo.SourceImage, forgejo.TargetImage, forgejo.PostgresImage, forgejo.ProbeImage}, ResourceCount: 24, MemoryFloorMiB: 4096, DiskPlanningNote: "Allow space for the staged archive, three restored databases, three data volumes and pinned images. The archive limit is 2 GiB; database and data TAR limits are 1 GiB each. Compressed size does not predict restored database size.", RuntimeNote: "Linux amd64 Docker Engine 28+ with Compose and isolated dual-stack bridges. Windows requires an explicitly named WSL2 distribution. All phase volumes are fresh; no app ports are published. Original Forgejo configuration is replaced by the adapter's isolated runtime configuration."}, nil
 	}
 	var prefix [5]byte
 	if _, err := io.ReadFull(f, prefix[:]); err != nil || string(prefix[:]) != "PGDMP" {
@@ -69,6 +87,15 @@ func ResolveAuth(cfg spec.Config, getenv func(string) string) (miniflux.Auth, er
 		return miniflux.Auth{}, code("AUTH_INVALID")
 	}
 	refs := cfg.AuthEnvRefs
+	if cfg.Adapter == "forgejo" {
+		// The shared runner credential carrier preserves the existing CLI
+		// signature; only its token field participates in Forgejo requests.
+		token := getenv(refs.APIToken)
+		if _, err := forgejo.CurlConfig(forgejo.UserEndpoint(), &forgejo.Auth{Token: token}); err != nil {
+			return miniflux.Auth{}, code("AUTH_INVALID")
+		}
+		return miniflux.Auth{APIToken: token}, nil
+	}
 	auth := miniflux.Auth{APIToken: getenv(refs.APIToken), Username: getenv(refs.Username), Password: getenv(refs.Password)}
 	if refs.APIToken != "" {
 		auth.Username = ""

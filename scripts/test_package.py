@@ -16,6 +16,7 @@ class PackageOutputTests(unittest.TestCase):
         expected = {
             "README.md", "LICENSE", "SECURITY.md", "CONTRIBUTING.md", "THIRD_PARTY.md",
             "docs/architecture.md", "docs/configuration.md", "docs/fixture.md",
+            "docs/forgejo-adapter.md", "docs/history-recovery.md",
             "docs/miniflux-adapter.md", "docs/quickstart.tr.md", "docs/rehearsal-flow.md",
             "docs/roadmap.md", "docs/state-storage.md", "docs/support.md",
             "examples/miniflux/README.md", "examples/miniflux/miniflux-source-125.dump",

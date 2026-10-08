@@ -19,6 +19,14 @@ import (
 )
 
 const MaxBackupBytes int64 = 128 << 30
+const MaxForgejoBackupBytes int64 = 2 << 30
+
+func backupLimitForAdapter(adapter string) int64 {
+	if adapter == "forgejo" {
+		return MaxForgejoBackupBytes
+	}
+	return MaxBackupBytes
+}
 
 type code string
 
@@ -38,15 +46,17 @@ type Backup struct {
 	Bytes      int64  `json:"bytes"`
 }
 type Run struct {
-	SchemaVersion int        `json:"schemaVersion"`
-	ID            string     `json:"id"`
-	OwnerID       string     `json:"ownerId"`
-	DaemonID      string     `json:"daemonId"`
-	CreatedAt     time.Time  `json:"createdAt"`
-	Status        string     `json:"status"`
-	Resources     []Resource `json:"resources"`
-	Backup        *Backup    `json:"backup,omitempty"`
-	PendingBackup *Backup    `json:"pendingBackup,omitempty"`
+	SchemaVersion          int        `json:"schemaVersion"`
+	Adapter                string     `json:"adapter,omitempty"`
+	AdapterContractVersion int        `json:"adapterContractVersion,omitempty"`
+	ID                     string     `json:"id"`
+	OwnerID                string     `json:"ownerId"`
+	DaemonID               string     `json:"daemonId"`
+	CreatedAt              time.Time  `json:"createdAt"`
+	Status                 string     `json:"status"`
+	Resources              []Resource `json:"resources"`
+	Backup                 *Backup    `json:"backup,omitempty"`
+	PendingBackup          *Backup    `json:"pendingBackup,omitempty"`
 }
 type Store struct {
 	root  string
@@ -172,13 +182,40 @@ const lockRecordName = "metadata.json"
 // AcquireRunLock atomically claims exclusive ownership of a run. An existing
 // lock, including one with incomplete metadata after a crash, is never
 // adopted automatically.
-func (s *Store) AcquireRunLock(id string) (*RunLock, error) {
+func (s *Store) AcquireRunLock(id string) (lock *RunLock, returnErr error) {
+	runDir, err := s.RunDir(id)
+	if err != nil {
+		return nil, err
+	}
+	guard, err := acquireLockMutationGuard(runDir)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := guard.Release(); err != nil && returnErr == nil {
+			lock = nil
+			returnErr = err
+		}
+	}()
+	return s.acquireRunLockUnderGuard(id)
+}
+
+// The caller holds the kernel mutation guard until all canonical lock
+// directory and metadata changes are visible to other processes.
+func (s *Store) acquireRunLockUnderGuard(id string) (*RunLock, error) {
 	if _, err := s.Load(id); err != nil {
 		return nil, err
 	}
 	runDir, err := s.RunDir(id)
 	if err != nil {
 		return nil, err
+	}
+	// Recovery's durable claim must be resolved explicitly before another
+	// canonical holder can be created. The caller holds the mutation guard.
+	if _, err := os.Lstat(filepath.Join(runDir, recoveryClaimDirectoryName)); err == nil {
+		return nil, code("RUN_RECOVERY_CLAIM_PENDING")
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, code("RUN_RECOVERY_CLAIM_PENDING")
 	}
 	lockDir := filepath.Join(runDir, lockDirectoryName)
 	if err := os.Mkdir(lockDir, 0700); err != nil {
@@ -300,7 +337,7 @@ func (l *RunLock) hold(store *Store, id string) (func(), error) {
 
 // Release removes only the lock record whose run, installation and unguessable
 // in-memory token still match this holder. It is idempotent after success.
-func (l *RunLock) Release() error {
+func (l *RunLock) Release() (returnErr error) {
 	if l == nil || l.store == nil {
 		return code("RUN_LOCK_REQUIRED")
 	}
@@ -313,6 +350,15 @@ func (l *RunLock) Release() error {
 	if err != nil {
 		return err
 	}
+	guard, err := acquireLockMutationGuard(runDir)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := guard.Release(); err != nil && returnErr == nil {
+			returnErr = err
+		}
+	}()
 	lockDir := filepath.Join(runDir, lockDirectoryName)
 	lockInfo, err := os.Lstat(lockDir)
 	if err != nil || !lockInfo.IsDir() || lockInfo.Mode()&os.ModeSymlink != 0 {
@@ -384,7 +430,7 @@ func (s *Store) validate(run Run) error {
 	if !validID(run.ID) {
 		return code("RUN_ID_INVALID")
 	}
-	if run.SchemaVersion != 1 || run.OwnerID != s.owner || run.CreatedAt.IsZero() || strings.TrimSpace(run.DaemonID) == "" || len(run.DaemonID) > 128 {
+	if run.OwnerID != s.owner || run.CreatedAt.IsZero() || strings.TrimSpace(run.DaemonID) == "" || len(run.DaemonID) > 128 {
 		return code("RUN_INTENT_INVALID")
 	}
 	switch run.Status {
@@ -392,8 +438,8 @@ func (s *Store) validate(run Run) error {
 	default:
 		return code("RUN_STATUS_INVALID")
 	}
-	if !reflect.DeepEqual(run.Resources, IntendedResources(s.owner, run.ID)) {
-		return code("RUN_RESOURCES_INVALID")
+	if err := ValidateRunResources(run); err != nil {
+		return err
 	}
 	if run.Backup != nil && run.PendingBackup != nil {
 		return code("RUN_BACKUP_INVALID")
@@ -402,6 +448,9 @@ func (s *Store) validate(run Run) error {
 		if err := validateBackup(*run.Backup); err != nil {
 			return err
 		}
+		if run.Backup.Bytes > backupLimitForAdapter(run.AdapterID()) {
+			return code("RUN_BACKUP_INVALID")
+		}
 	}
 	if run.PendingBackup != nil {
 		if run.Status != "staging" {
@@ -409,6 +458,9 @@ func (s *Store) validate(run Run) error {
 		}
 		if err := validateBackup(*run.PendingBackup); err != nil {
 			return err
+		}
+		if run.PendingBackup.Bytes > backupLimitForAdapter(run.AdapterID()) {
+			return code("RUN_BACKUP_INVALID")
 		}
 	}
 	return nil
@@ -646,7 +698,7 @@ func (s *Store) stageBackupLocked(ctx context.Context, run Run, sourceAbs string
 	}
 	tmp := filepath.Join(dir, "backup.partial")
 	dest := filepath.Join(dir, "backup.dump")
-	backup, err := copyBackupToPartial(ctx, sourceAbs, tmp)
+	backup, err := copyBackupToPartialForAdapter(ctx, sourceAbs, tmp, run.AdapterID())
 	if err != nil {
 		return Backup{}, err
 	}
@@ -685,6 +737,25 @@ func (s *Store) stageBackupLocked(ctx context.Context, run Run, sourceAbs string
 }
 
 func copyBackupToPartial(ctx context.Context, sourceAbs, tmp string) (Backup, error) {
+	return copyBackupToPartialForAdapter(ctx, sourceAbs, tmp, "miniflux")
+}
+
+func copyBackupToPartialForAdapter(ctx context.Context, sourceAbs, tmp, adapter string) (Backup, error) {
+	return copyBackupToPartialWithLimit(ctx, sourceAbs, tmp, adapter, backupLimitForAdapter(adapter))
+}
+
+// The copy algorithm takes its bound explicitly so every read, including a
+// source that grows after Stat, uses the same closed adapter budget.
+func copyBackupToPartialWithLimit(ctx context.Context, sourceAbs, tmp, adapter string, maxBytes int64) (Backup, error) {
+	if ctx == nil || ctx.Err() != nil {
+		return Backup{}, code("CANCELED")
+	}
+	if adapter != "miniflux" && adapter != "forgejo" {
+		return Backup{}, code("ADAPTER_UNSUPPORTED")
+	}
+	if maxBytes < 5 || maxBytes > backupLimitForAdapter(adapter) {
+		return Backup{}, code("BACKUP_TOO_LARGE")
+	}
 	info, err := os.Lstat(sourceAbs)
 	if err != nil || !info.Mode().IsRegular() {
 		return Backup{}, code("BACKUP_NOT_REGULAR")
@@ -695,17 +766,20 @@ func copyBackupToPartial(ctx context.Context, sourceAbs, tmp string) (Backup, er
 	}
 	defer f.Close()
 	before, err := f.Stat()
-	if err != nil || !before.Mode().IsRegular() {
+	if err != nil || !before.Mode().IsRegular() || !os.SameFile(info, before) {
 		return Backup{}, code("BACKUP_NOT_REGULAR")
 	}
 	if before.Size() < 5 {
 		return Backup{}, code("BACKUP_FORMAT_UNSUPPORTED")
 	}
-	if before.Size() > MaxBackupBytes {
+	if before.Size() > maxBytes {
 		return Backup{}, code("BACKUP_TOO_LARGE")
 	}
 	var prefix [5]byte
-	if _, err := io.ReadFull(f, prefix[:]); err != nil || string(prefix[:]) != "PGDMP" {
+	if _, err := io.ReadFull(f, prefix[:]); err != nil {
+		return Backup{}, code("BACKUP_FORMAT_UNSUPPORTED")
+	}
+	if adapter == "miniflux" && string(prefix[:]) != "PGDMP" || adapter == "forgejo" && string(prefix[:4]) != "PK\x03\x04" {
 		return Backup{}, code("BACKUP_FORMAT_UNSUPPORTED")
 	}
 	out, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
@@ -723,7 +797,7 @@ func copyBackupToPartial(ctx context.Context, sourceAbs, tmp string) (Backup, er
 	_, err = writer.Write(prefix[:])
 	var n int64
 	if err == nil {
-		n, err = io.CopyBuffer(writer, io.LimitReader(cancellableReader{ctx: ctx, r: f}, MaxBackupBytes-4), make([]byte, 64<<10))
+		n, err = io.CopyBuffer(writer, io.LimitReader(cancellableReader{ctx: ctx, r: f}, maxBytes-4), make([]byte, 64<<10))
 	}
 	if err == nil {
 		err = out.Sync()
@@ -734,6 +808,9 @@ func copyBackupToPartial(ctx context.Context, sourceAbs, tmp string) (Backup, er
 	}
 	if err != nil || closeErr != nil {
 		return Backup{}, code("BACKUP_STAGE_FAILED")
+	}
+	if n+5 > maxBytes {
+		return Backup{}, code("BACKUP_TOO_LARGE")
 	}
 	after, err := f.Stat()
 	if err != nil || n+5 != before.Size() || after.Size() != before.Size() || !after.ModTime().Equal(before.ModTime()) {
@@ -887,7 +964,7 @@ func (s *Store) RecoverBackup(ctx context.Context, lock *RunLock, source string)
 		if err != nil || !sameSourcePath(sourceAbs, pending.SourcePath) {
 			return Backup{}, code("BACKUP_RECOVERY_SOURCE_MISMATCH")
 		}
-		copied, err := copyBackupToPartial(ctx, sourceAbs, tmp)
+		copied, err := copyBackupToPartialForAdapter(ctx, sourceAbs, tmp, run.AdapterID())
 		if err != nil {
 			return Backup{}, err
 		}

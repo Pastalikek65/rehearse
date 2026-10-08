@@ -23,6 +23,8 @@ DISTRIBUTION_MANIFEST = (
     "docs/architecture.md",
     "docs/configuration.md",
     "docs/fixture.md",
+    "docs/forgejo-adapter.md",
+    "docs/history-recovery.md",
     "docs/miniflux-adapter.md",
     "docs/quickstart.tr.md",
     "docs/rehearsal-flow.md",

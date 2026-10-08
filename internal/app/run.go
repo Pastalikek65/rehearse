@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Pastalikek65/rehearse/internal/engine"
+	"github.com/Pastalikek65/rehearse/internal/forgejo"
 	"github.com/Pastalikek65/rehearse/internal/miniflux"
 	"github.com/Pastalikek65/rehearse/internal/report"
 	"github.com/Pastalikek65/rehearse/internal/spec"
@@ -129,12 +130,18 @@ var apiEndpoints = []string{
 	"/v1/entries?limit=100&starred=true",
 }
 
-// Run executes the fixed Miniflux rehearsal against a fresh set of owned
+// Run executes a closed built-in adapter against a fresh set of owned
 // resources. Configuration and authentication are validated before it asks
 // Docker to create the persisted run intent.
 func Run(ctx context.Context, cfg spec.Config, store *state.Store, client *engine.Engine, auth miniflux.Auth) (*report.Report, error) {
 	if ctx == nil || ctx.Err() != nil {
 		return nil, code("CANCELED")
+	}
+	if cfg.Adapter == "forgejo" {
+		if client == nil {
+			return nil, code("OPERATION_FAILED")
+		}
+		return runForgejoWithRuntime(ctx, cfg, store, client, forgejo.Auth{Token: auth.APIToken})
 	}
 	if err := preflight(ctx, cfg, auth); err != nil {
 		return nil, err
@@ -151,6 +158,9 @@ func preflight(ctx context.Context, cfg spec.Config, auth miniflux.Auth) error {
 	}
 	if err := spec.Validate(cfg); err != nil {
 		return code("CONFIG_INVALID")
+	}
+	if cfg.Adapter != "miniflux" {
+		return code("ADAPTER_UNSUPPORTED")
 	}
 	if _, err := BuildPlan(ctx, cfg); err != nil {
 		return err
@@ -241,8 +251,12 @@ func runWithRuntime(ctx context.Context, cfg spec.Config, store *state.Store, cl
 		result.Result = result.Outcome()
 		latest, loadErr = store.Load(intent.ID)
 		if loadErr != nil {
+			invalidateTerminalReport(runDir)
 			if returnErr == nil {
 				returnErr = code("OPERATION_FAILED")
+			}
+			if releaseErr := lock.Release(); releaseErr == nil {
+				locked = false
 			}
 		} else {
 			switch {
@@ -257,18 +271,15 @@ func runWithRuntime(ctx context.Context, cfg spec.Config, store *state.Store, cl
 			default:
 				latest.Status = "failed"
 			}
-			if writeErr := writeReportFiles(runDir, result); writeErr != nil {
-				if returnErr == nil {
-					returnErr = code("OPERATION_FAILED")
-				}
-			} else if saveErr := store.Save(lock, latest); saveErr != nil && returnErr == nil {
-				returnErr = code("OPERATION_FAILED")
+			finalErr, released := commitTerminalReport(runDir, result, latest, func(run state.Run) error {
+				return store.Save(lock, run)
+			}, lock.Release)
+			if finalErr != nil && returnErr == nil {
+				returnErr = finalErr
 			}
-		}
-		if releaseErr := lock.Release(); releaseErr != nil && returnErr == nil {
-			returnErr = code("OPERATION_FAILED")
-		} else if releaseErr == nil {
-			locked = false
+			if released {
+				locked = false
+			}
 		}
 	}()
 
@@ -968,6 +979,9 @@ func ReadReport(store *state.Store, runID string) (*report.Report, error) {
 	if err != nil {
 		return nil, code("REPORT_READ_FAILED")
 	}
+	if !terminalPublicationAbsent(dir) {
+		return nil, code("REPORT_READ_FAILED")
+	}
 	path := filepath.Join(dir, "report.json")
 	info, err := os.Lstat(path)
 	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() < 0 || info.Size() > report.MaxReportBytes {
@@ -984,6 +998,12 @@ func ReadReport(store *state.Store, runID string) (*report.Report, error) {
 	}
 	value, err := report.Parse(f)
 	if err != nil || value.RunID != runID {
+		return nil, code("REPORT_FORMAT_INVALID")
+	}
+	if value.Adapter != run.AdapterID() || value.AdapterContractVersion != run.AdapterContractVersion || value.SchemaVersion != run.SchemaVersion {
+		return nil, code("REPORT_FORMAT_INVALID")
+	}
+	if run.Status == "completed" && value.Result != "passed" || (run.Status == "failed" || run.Status == "cleanup-held") && value.Result == "passed" {
 		return nil, code("REPORT_FORMAT_INVALID")
 	}
 	htmlPath := filepath.Join(dir, "report.html")

@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/Pastalikek65/rehearse/internal/forgejo"
 )
 
 const (
@@ -145,13 +147,17 @@ func Validate(cfg Config) error {
 	if cfg.SchemaVersion != 1 {
 		return errSchemaVersion
 	}
-	if cfg.Adapter != approvedAdapter {
+	if cfg.Adapter != approvedAdapter && cfg.Adapter != "forgejo" {
 		return errAdapter
 	}
 	if !canonicalStableSemver(cfg.SourceVersion) || !canonicalStableSemver(cfg.TargetVersion) {
 		return errVersionInvalid
 	}
-	if cfg.SourceVersion != approvedSourceVersion || cfg.TargetVersion != approvedTargetVersion {
+	source, target := approvedSourceVersion, approvedTargetVersion
+	if cfg.Adapter == "forgejo" {
+		source, target = forgejo.SourceVersion, forgejo.TargetVersion
+	}
+	if cfg.SourceVersion != source || cfg.TargetVersion != target {
 		return errVersionPair
 	}
 	if cfg.PostgresVersion != approvedPostgresVersion {
@@ -161,6 +167,9 @@ func Validate(cfg Config) error {
 		return errBackupPathRequired
 	}
 	if !validAuthEnvRefs(cfg.AuthEnvRefs) {
+		return errAuthEnvRefsInvalid
+	}
+	if cfg.Adapter == "forgejo" && cfg.AuthEnvRefs.APIToken == "" {
 		return errAuthEnvRefsInvalid
 	}
 	return nil

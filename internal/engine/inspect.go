@@ -65,6 +65,7 @@ type ContainerStage string
 const (
 	ContainerStageCreated         ContainerStage = "created"
 	ContainerStageRunning         ContainerStage = "running"
+	ContainerStageStopped         ContainerStage = "stopped"
 	ContainerStageMigration       ContainerStage = "migration"
 	ContainerStageMigrationExited ContainerStage = "migration-exited"
 )
@@ -74,31 +75,61 @@ type ContainerInspection struct {
 	Status   string
 	Running  bool
 	ExitCode int
+	Image    string
 }
 
 func ParseBoundedContainer(raw []byte, role, networkName, networkID, volumeName string, stage ContainerStage) (ContainerInspection, error) {
+	return ParseBoundedContainerForAdapter(raw, ContainerBoundary{
+		Adapter: "miniflux", Role: role, NetworkName: networkName, NetworkID: networkID,
+		DatabaseVolumeName: volumeName, Stage: stage,
+	})
+}
+
+// ContainerBoundary is a closed inspection contract for a built-in adapter.
+// It is populated from persisted run intent and fixed image pins, never user
+// supplied Docker options.
+type ContainerBoundary struct {
+	Adapter            string
+	Role               string
+	NetworkName        string
+	NetworkID          string
+	DatabaseVolumeName string
+	DataVolumeName     string
+	ExpectedImage      string
+	ExpectedUser       string
+	Stage              ContainerStage
+}
+
+func ParseBoundedContainerForAdapter(raw []byte, boundary ContainerBoundary) (ContainerInspection, error) {
 	var c struct {
 		ID     string `json:"Id"`
 		Name   string
-		Config struct{ Labels map[string]string }
-		State  struct {
+		Config struct {
+			Image  string
+			User   string
+			Labels map[string]string
+		}
+		State struct {
 			Status   string
 			Running  bool
 			Dead     bool
 			ExitCode *int
 		}
 		HostConfig struct {
-			Privileged   bool
-			NetworkMode  string
-			PortBindings map[string]json.RawMessage
-			Binds        []string
-			CapAdd       []string
-			Devices      []json.RawMessage
-			PidMode      string
-			IpcMode      string
-			UTSMode      string
-			CgroupnsMode string
-			UsernsMode   string
+			Privileged     bool
+			NetworkMode    string
+			ReadonlyRootfs bool
+			PortBindings   map[string]json.RawMessage
+			Binds          []string
+			CapDrop        []string
+			CapAdd         []string
+			SecurityOpt    []string
+			Devices        []json.RawMessage
+			PidMode        string
+			IpcMode        string
+			UTSMode        string
+			CgroupnsMode   string
+			UsernsMode     string
 		}
 		NetworkSettings struct {
 			Networks map[string]struct{ NetworkID string }
@@ -117,27 +148,47 @@ func ParseBoundedContainer(raw []byte, role, networkName, networkID, volumeName 
 		return ContainerInspection{}, code("CONTAINER_INSPECT_INVALID")
 	}
 	h := c.HostConfig
-	if role != "db" && role != "app" && role != "probe" && role != "migration" {
+	role := boundary.Role
+	if !supportedContainerRole(boundary.Adapter, role) {
 		return ContainerInspection{}, code("CONTAINER_BOUNDARY_FAILED")
 	}
-	if h.Privileged || h.NetworkMode != networkName || len(h.PortBindings) != 0 || len(h.CapAdd) != 0 || len(h.Devices) != 0 ||
+	expectedNetworkMode := boundary.NetworkName
+	if boundary.Adapter == "forgejo" && role == "data-restore" {
+		expectedNetworkMode = "none"
+	}
+	if h.Privileged || h.NetworkMode != expectedNetworkMode || len(h.PortBindings) != 0 || len(h.CapAdd) != 0 || len(h.Devices) != 0 ||
 		!privateNamespace(h.PidMode) || !privateNamespace(h.IpcMode) || !privateNamespace(h.UTSMode) ||
 		!privateNamespace(h.CgroupnsMode) || !privateNamespace(h.UsernsMode) {
 		return ContainerInspection{}, code("CONTAINER_BOUNDARY_FAILED")
 	}
-	// Compose can serialize a named volume through HostConfig.Binds. This
-	// legacy field alone does not mean a host bind mount. Accept only the exact
-	// managed DB volume mapping and still require Type=volume below.
-	if len(h.Binds) != 0 && (role != "db" || len(h.Binds) != 1 || h.Binds[0] != volumeName+":/var/lib/postgresql/data:rw") {
+	if boundary.ExpectedImage != "" && c.Config.Image != boundary.ExpectedImage {
+		return ContainerInspection{}, code("CONTAINER_IMAGE_MISMATCH")
+	}
+	if boundary.ExpectedUser != "" && c.Config.User != boundary.ExpectedUser {
+		return ContainerInspection{}, code("CONTAINER_USER_MISMATCH")
+	}
+	if boundary.Adapter == "forgejo" {
+		if !exactStrings(c.HostConfig.SecurityOpt, "no-new-privileges:true") {
+			return ContainerInspection{}, code("CONTAINER_BOUNDARY_FAILED")
+		}
+		if role != "db" && (!c.HostConfig.ReadonlyRootfs || !exactStrings(c.HostConfig.CapDrop, "ALL")) {
+			return ContainerInspection{}, code("CONTAINER_BOUNDARY_FAILED")
+		}
+	}
+	volumeName, volumeDestination := expectedContainerVolume(boundary)
+	// Compose serializes named volumes through HostConfig.Binds on some engine
+	// versions. Accept only the exact managed volume mapping and still require
+	// an inspected Type=volume at the same destination.
+	if len(h.Binds) != 0 && (volumeName == "" || len(h.Binds) != 1 || h.Binds[0] != volumeName+":"+volumeDestination+":rw") {
 		return ContainerInspection{}, code("CONTAINER_BOUNDARY_FAILED")
 	}
-	if !containerStateAllowed(c.State.Status, c.State.Running, c.State.Dead, *c.State.ExitCode, role, stage) {
+	if !containerStateAllowed(c.State.Status, c.State.Running, c.State.Dead, *c.State.ExitCode, role, boundary.Stage, boundary.Adapter) {
 		return ContainerInspection{}, code("CONTAINER_STATE_FAILED")
 	}
-	if !containerNetworksAllowed(c.NetworkSettings.Networks, networkName, networkID, c.State.Status, c.State.Running, role, stage) {
+	if !containerNetworksAllowed(c.NetworkSettings.Networks, boundary.NetworkName, boundary.NetworkID, c.State.Status, c.State.Running, role, boundary.Stage, boundary.Adapter) {
 		return ContainerInspection{}, code("CONTAINER_BOUNDARY_FAILED")
 	}
-	if stage == ContainerStageMigration && role == "migration" && c.State.Status == "exited" && *c.State.ExitCode != 0 {
+	if boundary.Stage == ContainerStageMigration && role == "migration" && c.State.Status == "exited" && *c.State.ExitCode != 0 {
 		return ContainerInspection{}, code("MIGRATION_FAILED")
 	}
 	for _, bindings := range c.NetworkSettings.Ports {
@@ -146,22 +197,24 @@ func ParseBoundedContainer(raw []byte, role, networkName, networkID, volumeName 
 		}
 	}
 	volumeCount := 0
+	tmpfsCount := 0
 	for _, m := range c.Mounts {
 		switch m.Type {
 		case "volume":
-			if role != "db" || m.Name != volumeName || m.Destination != "/var/lib/postgresql/data" {
+			if volumeName == "" || m.Name != volumeName || m.Destination != volumeDestination {
 				return ContainerInspection{}, code("CONTAINER_BOUNDARY_FAILED")
 			}
 			volumeCount++
 		case "tmpfs":
-			if role == "db" || m.Destination != "/tmp" {
+			if !tmpfsAllowed(boundary.Adapter, role, m.Name, m.Destination) {
 				return ContainerInspection{}, code("CONTAINER_BOUNDARY_FAILED")
 			}
+			tmpfsCount++
 		default:
 			return ContainerInspection{}, code("CONTAINER_BOUNDARY_FAILED")
 		}
 	}
-	if role == "db" && volumeCount != 1 {
+	if (volumeName != "" && volumeCount != 1) || (volumeName == "" && volumeCount != 0) || tmpfsCount > 1 {
 		return ContainerInspection{}, code("CONTAINER_BOUNDARY_FAILED")
 	}
 	return ContainerInspection{
@@ -169,22 +222,57 @@ func ParseBoundedContainer(raw []byte, role, networkName, networkID, volumeName 
 		Status:       c.State.Status,
 		Running:      c.State.Running,
 		ExitCode:     *c.State.ExitCode,
+		Image:        c.Config.Image,
 	}, nil
+}
+
+func supportedContainerRole(adapter, role string) bool {
+	switch adapter {
+	case "miniflux":
+		return role == "db" || role == "app" || role == "probe" || role == "migration"
+	case "forgejo":
+		return role == "db" || role == "app" || role == "probe" || role == "migration" || role == "data-restore"
+	default:
+		return false
+	}
+}
+
+func expectedContainerVolume(boundary ContainerBoundary) (string, string) {
+	if boundary.Role == "db" {
+		return boundary.DatabaseVolumeName, "/var/lib/postgresql/data"
+	}
+	if boundary.Adapter == "forgejo" && (boundary.Role == "app" || boundary.Role == "migration" || boundary.Role == "data-restore") {
+		return boundary.DataVolumeName, "/data"
+	}
+	return "", ""
+}
+
+func tmpfsAllowed(adapter, role, name, destination string) bool {
+	if name != "" || destination != "/tmp" {
+		return false
+	}
+	return (adapter == "miniflux" || adapter == "forgejo") && (role == "app" || role == "migration" || role == "probe")
+}
+
+func exactStrings(values []string, expected string) bool {
+	return len(values) == 1 && values[0] == expected
 }
 
 func privateNamespace(mode string) bool {
 	return mode == "" || mode == "private"
 }
 
-func containerStateAllowed(status string, running, dead bool, exitCode int, role string, stage ContainerStage) bool {
+func containerStateAllowed(status string, running, dead bool, exitCode int, role string, stage ContainerStage, adapter string) bool {
 	if dead {
 		return false
 	}
 	switch stage {
 	case ContainerStageCreated:
-		return status == "created" && !running && exitCode == 0
+		return (role == "migration" || adapter == "forgejo") && status == "created" && !running && exitCode == 0
 	case ContainerStageRunning:
 		return status == "running" && running
+	case ContainerStageStopped:
+		return adapter == "forgejo" && role == "app" && status == "exited" && !running && exitCode == 0
 	case ContainerStageMigration:
 		if role != "migration" {
 			return false
@@ -197,7 +285,33 @@ func containerStateAllowed(status string, running, dead bool, exitCode int, role
 	}
 }
 
-func containerNetworksAllowed(networks map[string]struct{ NetworkID string }, networkName, networkID, status string, running bool, role string, stage ContainerStage) bool {
+func containerNetworksAllowed(networks map[string]struct{ NetworkID string }, networkName, networkID, status string, running bool, role string, stage ContainerStage, adapter string) bool {
+	if stage == ContainerStageStopped {
+		if adapter != "forgejo" || role != "app" || status != "exited" || running {
+			return false
+		}
+		if len(networks) == 0 {
+			return true
+		}
+		if len(networks) == 1 {
+			attached, ok := networks[networkName]
+			return ok && attached.NetworkID == networkID
+		}
+		return false
+	}
+	if adapter == "forgejo" && role == "data-restore" {
+		if stage != ContainerStageCreated || status != "created" || running {
+			return false
+		}
+		if len(networks) == 0 {
+			return true
+		}
+		if len(networks) == 1 {
+			none, ok := networks["none"]
+			return ok && none.NetworkID == ""
+		}
+		return false
+	}
 	if stage == ContainerStageRunning || (stage == ContainerStageMigration && running) {
 		return len(networks) == 1 && networks[networkName].NetworkID == networkID
 	}
@@ -228,6 +342,9 @@ func (e *Engine) inspect(ctx context.Context, r state.Resource) ([]byte, error) 
 }
 
 func (e *Engine) VerifyPhase(ctx context.Context, run state.Run, phase string) error {
+	if err := state.ValidateRunResources(run); err != nil {
+		return code("RUN_RESOURCES_INVALID")
+	}
 	daemon, err := e.Info(ctx)
 	if err != nil {
 		return err
@@ -245,7 +362,11 @@ func (e *Engine) VerifyPhase(ctx context.Context, run state.Run, phase string) e
 			}
 		}
 	}
-	if len(resources) != 6 {
+	expectedRoles := 6
+	if run.AdapterID() == "forgejo" {
+		expectedRoles = 8
+	}
+	if len(resources) != expectedRoles {
 		return code("PHASE_INVALID")
 	}
 	raw, err := e.inspect(ctx, resources["network"])
@@ -259,16 +380,22 @@ func (e *Engine) VerifyPhase(ctx context.Context, run state.Run, phase string) e
 	if err := VerifyOwnership(resources["network"], network.LiveResource, run.DaemonID, daemon.ID); err != nil {
 		return err
 	}
-	volumeRaw, err := e.inspect(ctx, resources["volume"])
-	if err != nil {
-		return err
+	volumes := []string{"volume"}
+	if run.AdapterID() == "forgejo" {
+		volumes = append(volumes, "data")
 	}
-	volume, err := ParseManagedVolume(volumeRaw)
-	if err != nil {
-		return err
-	}
-	if err := VerifyOwnership(resources["volume"], volume, run.DaemonID, daemon.ID); err != nil {
-		return err
+	for _, role := range volumes {
+		volumeRaw, err := e.inspect(ctx, resources[role])
+		if err != nil {
+			return err
+		}
+		volume, err := ParseManagedVolume(volumeRaw)
+		if err != nil {
+			return err
+		}
+		if err := VerifyOwnership(resources[role], volume, run.DaemonID, daemon.ID); err != nil {
+			return err
+		}
 	}
 	for _, endpoint := range network.Containers {
 		if !allowedNames[endpoint.Name] {
@@ -279,15 +406,12 @@ func (e *Engine) VerifyPhase(ctx context.Context, run state.Run, phase string) e
 	// executed. The one-shot migration container is checked separately before
 	// starting; its exit can detach its endpoint.
 	for _, role := range []string{"db", "app", "probe"} {
-		raw, err := e.inspect(ctx, resources[role])
-		if err != nil {
+		if _, err := e.inspectBounded(ctx, run, resources[role], network, ContainerStageRunning); err != nil {
 			return err
 		}
-		live, err := ParseBoundedContainer(raw, role, network.Name, network.ID, resources["volume"].Name, ContainerStageRunning)
-		if err != nil {
-			return err
-		}
-		if err := VerifyOwnership(resources[role], live.LiveResource, run.DaemonID, daemon.ID); err != nil {
+	}
+	if run.AdapterID() == "forgejo" {
+		if _, err := e.inspectBounded(ctx, run, resources["data-restore"], network, ContainerStageCreated); err != nil {
 			return err
 		}
 	}

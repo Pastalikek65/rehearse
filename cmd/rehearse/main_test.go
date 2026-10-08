@@ -413,8 +413,8 @@ func TestVersionAndHelpAreConcise(t *testing.T) {
 		}
 	}
 	stdout, stderr := &strings.Builder{}, &strings.Builder{}
-	if code := execute(context.Background(), []string{"--version"}, stdout, stderr, testOptions(t.TempDir())); code == 0 && !strings.Contains(stdout.String(), "0.1.0-development") {
-		t.Fatalf("unexpected version string: %q", stdout.String())
+	if code := execute(context.Background(), []string{"--version"}, stdout, stderr, testOptions(t.TempDir())); code != 0 || stderr.Len() != 0 || stdout.String() != "rehearse "+version+"\n" {
+		t.Fatalf("unexpected version result: code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
 }
 

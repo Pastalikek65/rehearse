@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/Pastalikek65/rehearse/internal/app"
 	"github.com/Pastalikek65/rehearse/internal/engine"
@@ -21,7 +22,7 @@ import (
 	"github.com/Pastalikek65/rehearse/internal/state"
 )
 
-var version = "0.1.0-development"
+var version = "0.2.0-development"
 
 const rootUsage = `Usage: rehearse <command> [options]
 
@@ -30,6 +31,9 @@ Commands:
   run [--wsl-distro NAME] <config>   Run an isolated rehearsal
   report [--format json|html] <id>   Print a saved report
   cleanup [--wsl-distro NAME] <id>   Clean owned rehearsal resources
+  history [--limit N] [--json]       List bounded private run summaries
+  recover <run-id>                   Recover one verified dead local process lock
+  archive --database D --data T --output Z  Package an offline Forgejo snapshot
 
 Requirements: Linux amd64 with Docker Engine 28+ and Compose, or Windows with
 an explicitly named WSL2 distribution containing Docker Engine and Compose.
@@ -113,6 +117,12 @@ func execute(ctx context.Context, args []string, stdout, stderr io.Writer, opts 
 		return commandReport(ctx, args[1:], stdout, stderr, opts)
 	case "cleanup":
 		return commandCleanup(ctx, args[1:], stdout, stderr, opts)
+	case "history":
+		return commandHistory(args[1:], stdout, stderr, opts)
+	case "recover":
+		return commandRecover(ctx, args[1:], stdout, stderr, opts)
+	case "archive":
+		return commandArchive(ctx, args[1:], stdout, stderr)
 	case "help":
 		if len(args) != 2 {
 			return writeFailure(stderr, nil, "ARGUMENTS_INVALID")
@@ -175,6 +185,12 @@ func commandUsage(command string) (string, bool) {
 		return "Usage: rehearse report [--format json|html] <run-id>\n\nPrint a report already stored in the private Rehearse state directory.\n", true
 	case "cleanup":
 		return "Usage: rehearse cleanup [--wsl-distro NAME] <run-id>\n\nRemove only resources whose ownership is proven for this run.\n", true
+	case "history":
+		return "Usage: rehearse history [--limit N] [--json]\n\nPrint bounded run metadata only; invalid records are reported without their paths.\n", true
+	case "recover":
+		return "Usage: rehearse recover <run-id>\n\nRecover only a verified dead local process lock. Owned Docker resources are left for cleanup.\n", true
+	case "archive":
+		return "Usage: rehearse archive [--json] --database <database.pgdump> --data <forgejo-data.tar> --output <new.zip>\n\nPackage an offline Forgejo 15.0.9 / PostgreSQL 17.11 snapshot.\nProvide a consistent snapshot: stop Forgejo before capturing both inputs.\nThis command does not contact Docker or prove cross-file consistency.\nExisting outputs are never overwritten.\nThe resulting archive contains private instance data and must be kept private.\n", true
 	default:
 		return "", false
 	}
@@ -363,6 +379,122 @@ func commandCleanup(ctx context.Context, args []string, stdout, stderr io.Writer
 	return writeText(stdout, stderr, "Cleanup completed for run "+fs.Args()[0]+".\n")
 }
 
+func commandHistory(args []string, stdout, stderr io.Writer, opts cliOptions) int {
+	fs := newFlagSet("history")
+	limit := fs.Int("limit", 0, "maximum rows (default 20, maximum 100)")
+	jsonOutput := fs.Bool("json", false, "print JSON")
+	showHelp, showHelpShort := addHelpFlags(fs)
+	if fs.Parse(args) != nil {
+		return commandArgumentFailure(stderr, "history")
+	}
+	if *showHelp || *showHelpShort {
+		usage, _ := commandUsage("history")
+		return writeText(stdout, stderr, usage)
+	}
+	if len(fs.Args()) != 0 {
+		return commandArgumentFailure(stderr, "history")
+	}
+	if *limit < 0 || *limit > state.MaxHistoryEntries {
+		return writeFailure(stderr, fixedError("HISTORY_LIMIT_INVALID"), "HISTORY_LIMIT_INVALID")
+	}
+	displayLimit := *limit
+	if displayLimit == 0 {
+		displayLimit = state.DefaultHistoryLimit
+	}
+	store, err := openState(opts)
+	if err != nil {
+		return writeFailure(stderr, err, "STATE_PATH_INVALID")
+	}
+	snapshot, err := store.History(*limit)
+	if err != nil {
+		return writeFailure(stderr, err, "HISTORY_READ_FAILED")
+	}
+	if *jsonOutput {
+		raw, err := json.MarshalIndent(snapshot, "", "  ")
+		if err != nil {
+			return writeFailure(stderr, err, "OPERATION_FAILED")
+		}
+		if code := writeBytes(stdout, stderr, append(raw, '\n')); code != 0 {
+			return code
+		}
+	} else if code := printHistory(stdout, stderr, snapshot, displayLimit); code != 0 {
+		return code
+	}
+	if snapshot.InvalidRecordsCount > 0 {
+		return writeFailure(stderr, nil, "HISTORY_INVALID_RECORDS")
+	}
+	if snapshot.ScanLimitReached {
+		return writeFailure(stderr, nil, "HISTORY_SCAN_LIMIT_REACHED")
+	}
+	return 0
+}
+
+func commandRecover(ctx context.Context, args []string, stdout, stderr io.Writer, opts cliOptions) int {
+	fs := newFlagSet("recover")
+	showHelp, showHelpShort := addHelpFlags(fs)
+	if fs.Parse(args) != nil {
+		return commandArgumentFailure(stderr, "recover")
+	}
+	if *showHelp || *showHelpShort {
+		usage, _ := commandUsage("recover")
+		return writeText(stdout, stderr, usage)
+	}
+	if len(fs.Args()) != 1 || strings.TrimSpace(fs.Args()[0]) == "" {
+		return commandArgumentFailure(stderr, "recover")
+	}
+	if !validRunID(fs.Args()[0]) {
+		return writeFailure(stderr, nil, "RUN_ID_INVALID")
+	}
+	if ctx == nil || ctx.Err() != nil {
+		return writeFailure(stderr, fixedError("CANCELED"), "CANCELED")
+	}
+	store, err := openState(opts)
+	if err != nil {
+		return writeFailure(stderr, err, "STATE_PATH_INVALID")
+	}
+	result, err := store.RecoverDeadLock(ctx, fs.Args()[0])
+	if err != nil {
+		if result.LockRecovered {
+			if _, writeErr := fmt.Fprintf(stdout, "Dead process lock recovered for run %s; persisted status is %s.\n", result.RunID, result.Status); writeErr != nil {
+				return writeFailure(stderr, writeErr, "OUTPUT_WRITE_FAILED")
+			}
+		}
+		return writeFailure(stderr, err, "RUN_RECOVERY_STATUS_FAILED")
+	}
+	if _, err := fmt.Fprintf(stdout, "Dead process lock recovered for run %s.\nPersisted status: %s\n", result.RunID, result.Status); err != nil {
+		return writeFailure(stderr, err, "OUTPUT_WRITE_FAILED")
+	}
+	return writeText(stdout, stderr, "Owned Docker resources were not removed; inspect the history and use cleanup when appropriate.\n")
+}
+
+func printHistory(out, stderr io.Writer, snapshot state.HistorySnapshot, limit int) int {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Rehearse history (%d run records shown)\n", len(snapshot.Entries))
+	for _, entry := range snapshot.Entries {
+		if entry.Status == "invalid" {
+			fmt.Fprintf(&b, "%s  invalid  %s\n", entry.RunID, entry.Code)
+			continue
+		}
+		fmt.Fprintf(&b, "%s  %s  %s  resources=%d  backup=%t  pending-backup=%t",
+			entry.RunID, entry.CreatedAt.UTC().Format(time.RFC3339), entry.Status,
+			entry.ResourceCount, entry.HasBackup, entry.HasPendingBackup)
+		if entry.ReportFinalizationPending {
+			b.WriteString("  report-finalization=pending")
+		}
+		b.WriteByte('\n')
+	}
+	if snapshot.InvalidRecordsCount > 0 {
+		fmt.Fprintf(&b, "Invalid records observed: %d\n", snapshot.InvalidRecordsCount)
+	}
+	if snapshot.Truncated && !snapshot.ScanLimitReached {
+		fmt.Fprintf(&b, "History truncated at the requested limit of %d rows.\n", limit)
+	}
+	if snapshot.ScanLimitReached {
+		b.WriteString("The state-directory scan limit was reached; additional records may remain unseen.\n")
+	}
+	return writeText(out, stderr, b.String())
+}
+
 func readConfig(path string, opts cliOptions) (spec.Config, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -421,8 +553,12 @@ func printPlan(out, stderr io.Writer, p app.Plan) int {
 	var b strings.Builder
 	fmt.Fprintln(&b, "Rehearse plan")
 	fmt.Fprintf(&b, "Adapter: %s\n", title(p.Adapter))
-	fmt.Fprintf(&b, "Versions: Miniflux %s → %s; PostgreSQL %s\n", p.SourceVersion, p.TargetVersion, p.PostgresVersion)
-	fmt.Fprintf(&b, "Backup: %d bytes; custom-format header recognized; archive validity is not established\n", p.BackupBytes)
+	fmt.Fprintf(&b, "Versions: %s %s → %s; PostgreSQL %s\n", title(p.Adapter), p.SourceVersion, p.TargetVersion, p.PostgresVersion)
+	if p.Adapter == "forgejo" {
+		fmt.Fprintf(&b, "Backup: %d bytes\nValidation: %s\n", p.BackupBytes, p.ValidationNote)
+	} else {
+		fmt.Fprintf(&b, "Backup: %d bytes; custom-format header recognized; archive validity is not established\n", p.BackupBytes)
+	}
 	fmt.Fprintf(&b, "Phases: %s\n", strings.Join(p.Phases, ", "))
 	fmt.Fprintf(&b, "Planned resources: %d\n", p.ResourceCount)
 	fmt.Fprintf(&b, "Memory floor: %d MiB\n", p.MemoryFloorMiB)
@@ -523,6 +659,7 @@ func (e fixedError) Error() string { return string(e) }
 var safeCodeNames = func() map[string]bool {
 	codes := strings.Fields(`
 ARGUMENTS_INVALID AUTH_INVALID AUTH_ENV_REFS_INVALID AUTH_FAILED AUTH_BYPASS ADAPTER_UNSUPPORTED
+ARCHIVE_OUTPUT_EXISTS ARCHIVE_OUTPUT_INVALID ARCHIVE_WRITE_FAILED
 API_OBSERVATION_INVALID API_VERSION_MISMATCH
 	BACKUP_FAILED DATA_CHANGED NETWORK_FAILED RESTORE_FAILED SCHEMA_MISMATCH RECOVERY_FAILED
 BACKUP_ALREADY_STAGED BACKUP_CHANGED_DURING_STAGING BACKUP_FORMAT_UNSUPPORTED
@@ -548,9 +685,15 @@ REPORT_SNAPSHOT_INVALID REPORT_STATUS_INVALID REPORT_TIME_INVALID REPORT_TOO_LAR
 REPORT_VERSION_UNSUPPORTED REPORT_WRITE_FAILED
 RESOURCE_ALREADY_EXISTS RESOURCE_INSPECT_INVALID RESOURCE_OWNERSHIP_MISMATCH
 RESOURCE_TYPE_INVALID RESOURCE_UNKNOWN
+HISTORY_INVALID_RECORDS HISTORY_LIMIT_INVALID HISTORY_READ_FAILED HISTORY_SCAN_LIMIT_REACHED
 RUN_BACKUP_INVALID RUN_CREATE_FAILED RUN_ID_INVALID RUN_INTENT_INVALID
+RUN_DIRECTORY_INVALID RUN_METADATA_INVALID
 RUN_LOCK_CREATE_FAILED RUN_LOCK_HELD RUN_LOCK_INFO_INVALID RUN_LOCK_NOT_FOUND
+RUN_LOCK_GUARD_CREATE_FAILED RUN_LOCK_GUARD_HELD RUN_LOCK_GUARD_INVALID
+RUN_LOCK_GUARD_LOCK_FAILED RUN_LOCK_GUARD_RELEASE_FAILED
 RUN_LOCK_OWNERSHIP_CHANGED RUN_LOCK_RELEASE_FAILED RUN_LOCK_REQUIRED
+	RUN_RECOVERY_CLAIM_FAILED RUN_RECOVERY_CLAIM_PENDING RUN_RECOVERY_FOREIGN_HOST RUN_RECOVERY_PROCESS_LIVE RUN_RECOVERY_PROCESS_UNKNOWN
+	RUN_RECOVERY_STATUS_FAILED RUN_RECOVERY_STATUS_HELD
 	RUN_RESOURCES_INVALID RUN_STATUS_INVALID SOURCE_CHANGED CLEANUP_HELD
 SCHEMA_VERSION_UNSUPPORTED STATE_CREATE_FAILED STATE_DIRECTORY_INVALID STATE_ENCODE_FAILED
 STATE_FORMAT_INVALID STATE_IDENTITY_FAILED STATE_IDENTITY_INVALID STATE_PATH_INVALID
