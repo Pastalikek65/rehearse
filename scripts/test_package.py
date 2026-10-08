@@ -22,7 +22,7 @@ class PackageOutputTests(unittest.TestCase):
             "examples/miniflux/rehearse.json", "third_party/go.LICENSE",
         }
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve(strict=True)
             for name in expected:
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -37,8 +37,9 @@ class PackageOutputTests(unittest.TestCase):
 
     def test_release_directory_symlink_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary) / "checkout"
-            outside = Path(temporary) / "outside"
+            base = Path(temporary).resolve(strict=True)
+            root = base / "checkout"
+            outside = base / "outside"
             root.mkdir()
             outside.mkdir()
             link = root / "release"
@@ -53,24 +54,28 @@ class PackageOutputTests(unittest.TestCase):
 
     def test_release_reparse_point_is_rejected_without_symlink_privilege(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary) / "checkout"
+            root = Path(temporary).resolve(strict=True) / "checkout"
             root.mkdir()
             release = root / "release"
             release.mkdir()
             real_lstat = Path.lstat
+            injected = False
 
             def lstat_with_reparse_point(path):
+                nonlocal injected
                 if path == release:
+                    injected = True
                     return SimpleNamespace(st_mode=stat.S_IFDIR | 0o755, st_file_attributes=0x400)
                 return real_lstat(path)
 
             with mock.patch.object(Path, "lstat", autospec=True, side_effect=lstat_with_reparse_point):
                 with self.assertRaises(package.PackageError):
                     package.ensure_release_dir(root)
+            self.assertTrue(injected, "reparse-point fault injection did not match the canonical release path")
 
     def test_existing_checksum_sidecar_is_preserved_and_blocks_slot(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve(strict=True)
             release = root / "release"
             release.mkdir()
             stage = release / ".package-test"
@@ -91,7 +96,7 @@ class PackageOutputTests(unittest.TestCase):
 
     def test_partial_publish_removes_only_its_archive_link(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve(strict=True)
             release = root / "release"
             release.mkdir()
             stage = release / ".package-test"
@@ -104,10 +109,13 @@ class PackageOutputTests(unittest.TestCase):
             final_archive = release / archive_name
             final_sidecar = release / (archive_name + ".sha256")
             real_link = os.link
+            injected = False
 
             def fail_sidecar_link(source, destination):
+                nonlocal injected
                 destination = Path(destination)
                 if destination == final_sidecar:
+                    injected = True
                     destination.write_bytes(b"foreign concurrent checksum\n")
                     raise FileExistsError("occupied by another writer")
                 return real_link(source, destination)
@@ -116,13 +124,14 @@ class PackageOutputTests(unittest.TestCase):
                 with self.assertRaises(package.PackageError):
                     package.publish_staged_pair(root, archive_name, staged_archive, staged_sidecar)
 
+            self.assertTrue(injected, "sidecar collision fault injection did not match the canonical output path")
             self.assertFalse(final_archive.exists())
             self.assertEqual(final_sidecar.read_bytes(), b"foreign concurrent checksum\n")
             self.assertEqual(staged_archive.read_bytes(), b"new archive")
 
     def test_successful_publish_keeps_both_files_after_stage_cleanup(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve(strict=True)
             release = root / "release"
             release.mkdir()
             stage = release / ".package-test"
@@ -147,7 +156,7 @@ class PackageOutputTests(unittest.TestCase):
         files = {"README.md": (b"docs", 0o644), "rehearse": (b"binary", 0o755)}
         base = "rehearse-0.1.0-linux-amd64"
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve(strict=True)
             linux_a = root / "a.tar.gz"
             linux_b = root / "b.tar.gz"
             package.write_archive(linux_a, files, base, "linux")
