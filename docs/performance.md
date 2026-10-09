@@ -17,6 +17,21 @@ The host and sampling caveats below also apply. The native Windows CLI used a lo
 
 [Raw real-workload records](performance/windows-rehearsal-0.2.json) retain every sample, package identity, fixture digests, check states, data-projection digests and source evidence hashes, without credentials or local paths. To repeat, extract that exact release artifact in a fresh private profile and run its bundled example using the documented platform prerequisites. A different artifact, dataset or environment is a new measurement.
 
+## Actual Linux ELF package rehearsals (WSL2)
+
+The local Linux `0.2.0` archive from the same clean9595 source was separately extracted into fresh ext4 profiles in Ubuntu 24.04.5 inside WSL2, using its local Unix Docker socket. Its SHA-256 is `e3ba2acfe8c3a98315b4b86f0514a272b5fe1f12c831a7ff9ed3d6d05c1286b0`. This archive differs from the CI-built archive; its own acceptance is recorded here.
+
+| Adapter | Samples | Run duration, seconds | Sampled CLI RSS peak, bytes | Checks passed |
+| --- | ---: | ---: | ---: | ---: |
+| Miniflux | 1 | 25.995 | 13,500,416 | 23 / 23 |
+| Forgejo | 1 | 44.723 | 13,619,200 | 25 / 25 |
+
+Both runs used the same bundled backups and version pairs described above. Their nonempty data projections matched across baseline, target and recovery; Forgejo file projections also matched. Source backups were unchanged, JSON/HTML reports remained readable after two cleanups, and final run-label inventories returned no containers, volumes or networks.
+
+Linux memory is RSS sampled from `/proc` at about 50 ms intervals, so short peaks may be missed. The monotonic timer starts before launching the CLI and ends after exit. It includes startup, cleanup and polling; it excludes image downloads because the images were already present. Other qualification preparation shared the host and cache state was uncontrolled. Children, the Docker daemon, containers and WSL host work are excluded from RSS. These timer and memory methods differ from the Windows observations; the samples do not establish relative platform speed or equal total memory use. Linux acceptance here is native ELF execution inside WSL2, with separate Ubuntu CI evidence; it is not a measurement of every physical Linux installation.
+
+[Raw Linux records](performance/linux-rehearsal-0.2.json) retain every sample, exact package/executable and fixture identity, check states, projections and source evidence hashes. Repeating the bundled example with the same archive, a fresh private Linux profile and prepared local Docker engine creates a new observation.
+
 ## Offline parser measurements
 
 The measured binary was built from clean commit `42dd0f1a2761afa672e3e1129500abbd9b9c734f`, reported `rehearse 0.2.0-development`, and has SHA-256 `c4510094991ed72e8d2c598d65dffcc15bc50406bef48253f2380280797048db`. It is an exploratory source build, not a qualified release package.

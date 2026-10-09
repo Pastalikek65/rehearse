@@ -27,6 +27,10 @@ These checks concern the supplied Miniflux backup. They do not test production c
 
 ## Current limits
 
+Three intermittent Windows state/staging errors were observed during synthetic development tests: `STATE_WRITE_FAILED`, `BACKUP_FAILED` and `OPERATION_FAILED`. Their original operation/OS cause was not captured and remains unknown. Later successful repetitions are not a demonstrated fix; no source data loss or false passing report was observed. Current tests retain fixed internal operation/errno diagnostics if they recur.
+
+A separate controlled Windows test verifies that an open state-file handle which denies delete sharing can reject atomic replacement: staging returns an error, preserves the source, does not accept a staged backup or publish a report, and permits explicit restaging after the handle is closed. This is a tested environmental failure path, not a diagnosis of the earlier events. If a state write fails, stop concurrent access, check access permissions/available storage and retain the private run state for diagnosis. Identify any process holding the file before closing it; follow the verified dead-lock recovery instructions if needed. Never remove `report.finalizing` or a live/ambiguous lock to make a result readable. Do not treat stored status as a successful rehearsal after a write/finalization error.
+
 - Public v0.1 accepts PostgreSQL custom-format Miniflux backups, with a 128 GiB input limit. Archive size does not predict restored disk usage.
 - API responses are bounded to 8 MiB. Data projections are bounded to 1 GiB total and 4 MiB per row. Exceeding a limit fails the corresponding check.
 - Windows requires an explicit WSL2 distribution and inherited private ACLs on the per-user state directory. No Windows power-loss durability guarantee is made.
