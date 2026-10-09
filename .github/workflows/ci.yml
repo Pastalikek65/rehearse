@@ -101,6 +101,27 @@ jobs:
           ./rehearse report --format html "$run_id" > "$GITHUB_WORKSPACE/linux-cli-report.html"
           python -c 'import json, os; r=json.load(open(os.environ["GITHUB_WORKSPACE"]+"/linux-cli-report.json")); assert r["outcome"]=="passed"; assert len(r["checks"])==23; assert all(c["status"]=="passed" for c in r["checks"])'
           ./rehearse cleanup "$run_id"
+          for kind in container volume network; do
+            flags=()
+            if [ "$kind" = container ]; then flags=(--all); fi
+            inventory=$(docker --host unix:///var/run/docker.sock "$kind" ls "${flags[@]}" --quiet --filter "label=io.rehearse.run=$run_id")
+            test -z "$inventory"
+          done
+          export REHEARSE_FORGEJO_EXAMPLE_TOKEN="$(cat examples/forgejo/fixture-read-token.txt)"
+          ./rehearse plan --json examples/forgejo/rehearse.json
+          ./rehearse run examples/forgejo/rehearse.json | tee "$GITHUB_WORKSPACE/linux-forgejo-cli-acceptance.log"
+          run_id=$(sed -n 's/^Run: \([a-f0-9]\{32\}\)$/\1/p' "$GITHUB_WORKSPACE/linux-forgejo-cli-acceptance.log")
+          test "${#run_id}" -eq 32
+          ./rehearse report --format json "$run_id" > "$GITHUB_WORKSPACE/linux-forgejo-cli-report.json"
+          ./rehearse report --format html "$run_id" > "$GITHUB_WORKSPACE/linux-forgejo-cli-report.html"
+          python -c 'import json, os; r=json.load(open(os.environ["GITHUB_WORKSPACE"]+"/linux-forgejo-cli-report.json")); assert r["schemaVersion"]==2 and r["adapter"]=="forgejo" and r["adapterContractVersion"]==1; assert r["outcome"]=="passed" and len(r["checks"])==25; assert all(c["status"]=="passed" for c in r["checks"])'
+          ./rehearse cleanup "$run_id"
+          for kind in container volume network; do
+            flags=()
+            if [ "$kind" = container ]; then flags=(--all); fi
+            inventory=$(docker --host unix:///var/run/docker.sock "$kind" ls "${flags[@]}" --quiet --filter "label=io.rehearse.run=$run_id")
+            test -z "$inventory"
+          done
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
@@ -110,5 +131,8 @@ jobs:
             linux-cli-acceptance.log
             linux-cli-report.json
             linux-cli-report.html
+            linux-forgejo-cli-acceptance.log
+            linux-forgejo-cli-report.json
+            linux-forgejo-cli-report.html
             release/*
           if-no-files-found: error

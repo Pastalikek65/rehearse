@@ -60,12 +60,12 @@ func runForgejoWithRuntime(ctx context.Context, cfg spec.Config, store *state.St
 	}
 	intent, err := store.CreateForAdapter(daemon.ID, "forgejo")
 	if err != nil {
-		return nil, code("OPERATION_FAILED")
+		return nil, withStateDiagnostic("OPERATION_FAILED", err)
 	}
 	result = report.NewForgejo(intent.ID, platform, time.Now().UTC())
 	lock, err := store.AcquireRunLock(intent.ID)
 	if err != nil {
-		return result, code("OPERATION_FAILED")
+		return result, withStateDiagnostic("OPERATION_FAILED", err)
 	}
 	locked := true
 	defer func() {
@@ -77,7 +77,7 @@ func runForgejoWithRuntime(ctx context.Context, cfg spec.Config, store *state.St
 	}()
 	runDir, err := store.RunDir(intent.ID)
 	if err != nil {
-		return result, code("OPERATION_FAILED")
+		return result, withStateDiagnostic("OPERATION_FAILED", err)
 	}
 	var staged *state.Backup
 	defer func() {
@@ -99,7 +99,8 @@ func runForgejoWithRuntime(ctx context.Context, cfg spec.Config, store *state.St
 	pass := func(id string) { _ = result.Set(id, "passed", "VALIDATED") }
 	backup, err := store.StageBackup(ctx, lock, cfg.BackupPath)
 	if err != nil {
-		return result, fail("backup.inspect", "BACKUP_FAILED")
+		failure := fail("backup.inspect", "BACKUP_FAILED")
+		return result, withStateDiagnostic(failure.Error(), err)
 	}
 	staged = &backup
 	result.BackupSHA256 = backup.SHA256

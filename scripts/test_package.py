@@ -21,6 +21,12 @@ class PackageOutputTests(unittest.TestCase):
             "docs/roadmap.md", "docs/state-storage.md", "docs/support.md",
             "examples/miniflux/README.md", "examples/miniflux/miniflux-source-125.dump",
             "examples/miniflux/rehearse.json", "third_party/go.LICENSE",
+            "examples/forgejo/README.md", "examples/forgejo/forgejo-source-1509.zip",
+            "examples/forgejo/fixture-read-token.txt", "examples/forgejo/fixture.json",
+            "examples/forgejo/rehearse.json",
+            "docs/performance.md", "docs/performance/windows-parser-8MiB.json",
+            "docs/performance/windows-parser-64MiB.json",
+            "third_party/forgejo.LICENSE", "third_party/gitea.LICENSE", "third_party/git.COPYING",
         }
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve(strict=True)

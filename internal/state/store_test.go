@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -89,7 +90,7 @@ func TestBackupStagingCopiesExactBytesWithoutChangingSource(t *testing.T) {
 	}
 	staged, err := s.StageBackup(context.Background(), lock, source)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("StageBackup: %v (diagnostic=%s)", err, safeStateDiagnostic(err))
 	}
 	want := sha256.Sum256(data)
 	if staged.SHA256 != hex.EncodeToString(want[:]) || staged.Bytes != int64(len(data)) {
@@ -116,6 +117,14 @@ func TestBackupStagingCopiesExactBytesWithoutChangingSource(t *testing.T) {
 	if loaded.Backup == nil || loaded.Backup.SHA256 != staged.SHA256 {
 		t.Fatal("staging evidence not durable")
 	}
+}
+
+func safeStateDiagnostic(err error) string {
+	diagnostic, ok := DiagnosticFor(err)
+	if !ok {
+		return "unavailable"
+	}
+	return fmt.Sprintf("code=%s operation=%s errno=%d", diagnostic.Code, diagnostic.Operation, diagnostic.Errno)
 }
 
 func TestCanceledStagingLeavesNoAcceptedBackup(t *testing.T) {
@@ -526,7 +535,7 @@ func TestVerifiedBackupOpenerDetectsMutationAndRewindsSameHandle(t *testing.T) {
 	}
 	staged, err := s.StageBackup(context.Background(), lock, source)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("StageBackup: %v (diagnostic=%s)", err, safeStateDiagnostic(err))
 	}
 	file, err := s.OpenVerifiedBackup(run.ID)
 	if err != nil {

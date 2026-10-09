@@ -1,0 +1,2 @@
+# The POSIX example reads this deliberately public synthetic token with command substitution.
+examples/forgejo/fixture-read-token.txt text eol=lf

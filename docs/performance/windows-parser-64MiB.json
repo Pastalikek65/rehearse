@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "kind": "offline-parser-scaling",
+  "sourceCommit": "42dd0f1a2761afa672e3e1129500abbd9b9c734f",
+  "version": "rehearse 0.2.0-development",
+  "binarySha256": "c4510094991ed72e8d2c598d65dffcc15bc50406bef48253f2380280797048db",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "logicalProcessors": 32,
+  "cacheState": "uncontrolled; recently generated inputs; no cold-cache claim",
+  "scope": "archive packaging and full offline envelope planning; no valid PostgreSQL restore, Docker or upgrade performance claim",
+  "dataset": {
+    "schemaVersion": 1,
+    "kind": "offline-archive-parser-only",
+    "restorablePostgreSQLBackup": false,
+    "seed": 20261009,
+    "files": 512,
+    "regularFileBytes": 67108864,
+    "bytesPerFile": 131072,
+    "members": 514,
+    "filesSHA256": {
+      "database.pgdump": {
+        "bytes": 53,
+        "sha256": "e4ada8e1029b13a0dcee86e5e80176ec6423babf4134bc6b162ac362b1a2c6a0"
+      },
+      "forgejo-data.tar": {
+        "bytes": 67379200,
+        "sha256": "ff3ec2cf8c7188e6b967e5a836405fb6d2eb170ea6f7b9c009d47d55a525ee37"
+      }
+    }
+  },
+  "results": [
+    {
+      "operation": "archive",
+      "repetition": 1,
+      "seconds": 0.314942,
+      "peakWorkingSetBytes": 13586432,
+      "peakMetric": "Windows GetProcessMemoryInfo PeakWorkingSetSize; CLI process only",
+      "memoryQueries": 31,
+      "exitCode": 0,
+      "stdoutSha256": "22f5ebc47e3952b6637bfe2f71b2a062d07a99355b5de5d2aa606904375a27a4"
+    },
+    {
+      "operation": "plan",
+      "repetition": 1,
+      "seconds": 0.086573,
+      "peakWorkingSetBytes": 10174464,
+      "peakMetric": "Windows GetProcessMemoryInfo PeakWorkingSetSize; CLI process only",
+      "memoryQueries": 9,
+      "exitCode": 0,
+      "stdoutSha256": "abec9cc281028be63cd43514242578e5b1325979049ecc154328c72cf4227482"
+    },
+    {
+      "operation": "plan",
+      "repetition": 2,
+      "seconds": 0.086211,
+      "peakWorkingSetBytes": 10321920,
+      "peakMetric": "Windows GetProcessMemoryInfo PeakWorkingSetSize; CLI process only",
+      "memoryQueries": 9,
+      "exitCode": 0,
+      "stdoutSha256": "abec9cc281028be63cd43514242578e5b1325979049ecc154328c72cf4227482"
+    },
+    {
+      "operation": "plan",
+      "repetition": 3,
+      "seconds": 0.086055,
+      "peakWorkingSetBytes": 10285056,
+      "peakMetric": "Windows GetProcessMemoryInfo PeakWorkingSetSize; CLI process only",
+      "memoryQueries": 9,
+      "exitCode": 0,
+      "stdoutSha256": "abec9cc281028be63cd43514242578e5b1325979049ecc154328c72cf4227482"
+    }
+  ]
+}

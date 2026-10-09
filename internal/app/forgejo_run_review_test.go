@@ -171,7 +171,7 @@ func TestForgejoRunDetectsSourceMutationDuringFinalCleanup(t *testing.T) {
 	}}
 	r, err := runForgejoWithRuntime(context.Background(), cfg, store, runtime, forgejo.Auth{Token: strings.Repeat("x", 40)})
 	if err == nil || r == nil || runtime.cleanupRuns != 1 {
-		t.Fatalf("source-change run: report=%+v error=%v cleanup=%d", r, err, runtime.cleanupRuns)
+		t.Fatalf("source-change run: report=%+v error=%v diagnostic=%s cleanup=%d", r, err, safeOperationDiagnostic(err), runtime.cleanupRuns)
 	}
 	if checkCode(r, "source.unchanged") != "SOURCE_CHANGED" || r.Result != "failed" {
 		t.Fatalf("mutated input was not recorded as a failed source check: %+v", r.Checks)

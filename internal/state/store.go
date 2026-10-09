@@ -514,12 +514,15 @@ func syncDir(dir string) error {
 	}
 	d, err := os.Open(dir)
 	if err != nil {
-		return code("STATE_SYNC_FAILED")
+		return operationFailure("STATE_SYNC_FAILED", "open", err)
 	}
 	err = d.Sync()
 	closeErr := d.Close()
-	if err != nil || closeErr != nil {
-		return code("STATE_SYNC_FAILED")
+	if err != nil {
+		return operationFailure("STATE_SYNC_FAILED", "sync", err)
+	}
+	if closeErr != nil {
+		return operationFailure("STATE_SYNC_FAILED", "close", closeErr)
 	}
 	return nil
 }
@@ -561,19 +564,26 @@ func atomicWrite(dir, name string, raw []byte) error {
 	tmp := filepath.Join(dir, ".write-"+id)
 	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
-		return code("STATE_WRITE_FAILED")
+		return operationFailure("STATE_WRITE_FAILED", "open", err)
 	}
 	defer os.Remove(tmp)
-	_, err = f.Write(raw)
-	if err == nil {
-		err = f.Sync()
+	_, writeErr := f.Write(raw)
+	var syncErr error
+	if writeErr == nil {
+		syncErr = f.Sync()
 	}
-	closed := f.Close()
-	if err != nil || closed != nil {
-		return code("STATE_WRITE_FAILED")
+	closeErr := f.Close()
+	if writeErr != nil {
+		return operationFailure("STATE_WRITE_FAILED", "write", writeErr)
+	}
+	if syncErr != nil {
+		return operationFailure("STATE_WRITE_FAILED", "sync", syncErr)
+	}
+	if closeErr != nil {
+		return operationFailure("STATE_WRITE_FAILED", "close", closeErr)
 	}
 	if err := os.Rename(tmp, filepath.Join(dir, name)); err != nil {
-		return code("STATE_WRITE_FAILED")
+		return operationFailure("STATE_WRITE_FAILED", "rename", err)
 	}
 	if err := syncDir(dir); err != nil {
 		return err

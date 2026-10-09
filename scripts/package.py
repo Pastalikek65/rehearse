@@ -31,10 +31,21 @@ DISTRIBUTION_MANIFEST = (
     "docs/roadmap.md",
     "docs/state-storage.md",
     "docs/support.md",
+    "docs/performance.md",
+    "docs/performance/windows-parser-8MiB.json",
+    "docs/performance/windows-parser-64MiB.json",
     "examples/miniflux/README.md",
     "examples/miniflux/miniflux-source-125.dump",
     "examples/miniflux/rehearse.json",
+    "examples/forgejo/README.md",
+    "examples/forgejo/forgejo-source-1509.zip",
+    "examples/forgejo/fixture-read-token.txt",
+    "examples/forgejo/fixture.json",
+    "examples/forgejo/rehearse.json",
     "third_party/go.LICENSE",
+    "third_party/forgejo.LICENSE",
+    "third_party/gitea.LICENSE",
+    "third_party/git.COPYING",
 )
 
 

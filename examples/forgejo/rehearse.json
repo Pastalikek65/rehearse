@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "adapter": "forgejo",
+  "sourceVersion": "15.0.9",
+  "targetVersion": "16.0.5",
+  "postgresVersion": "17.11",
+  "backupPath": "forgejo-source-1509.zip",
+  "authEnvRefs": {
+    "apiToken": "REHEARSE_FORGEJO_EXAMPLE_TOKEN"
+  }
+}

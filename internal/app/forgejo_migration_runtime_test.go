@@ -90,17 +90,41 @@ func runForgejoMigrationFailureAcceptance(t *testing.T, client *engine.Engine, b
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
-	runtimeClient := &forgejoMigrationFailureRuntime{Engine: client}
+	var inventoryRun *state.Run
+	inventoryChecked := false
+	defer func() {
+		if inventoryRun != nil && !inventoryChecked {
+			_ = assertForgejoMigrationRunInventoryEmpty(t, ctx, client, *inventoryRun)
+			inventoryChecked = true
+		}
+	}()
+	runtimeClient := newForgejoMigrationFailureRuntime(client)
 	r, runErr := runForgejoWithRuntime(ctx, forgejoConfig(backup), store, runtimeClient, auth)
 	if r == nil {
 		t.Fatal("failure acceptance returned no report")
 	}
-	if runErr == nil || runErr.Error() != "MIGRATION_FAILED" {
-		t.Fatal("target migration did not return the fixed MIGRATION_FAILED code")
+	run, stateErr := store.Load(r.RunID)
+	stateStatus, resourcesValid := "unavailable", false
+	if stateErr == nil {
+		stateStatus = run.Status
+		resourcesValid = state.ValidateRunResources(run) == nil
+		inventoryRun = &run
 	}
-	if !runtimeClient.targetRestoreListed || !runtimeClient.targetRestoreApplied || !runtimeClient.triggerInstalled ||
-		!runtimeClient.targetMigrationWaited || !runtimeClient.targetMigrationFailed || !runtimeClient.sentinelObserved {
-		t.Fatal("the pinned target migration did not fail after an actual target restore because of the synthetic event trigger")
+	targetStatus, targetCode := forgejoMigrationReportCheck(r, "target.migration")
+	cleanupStatus, cleanupCode := forgejoMigrationReportCheck(r, "cleanup.ownership")
+	t.Logf("FORGEJO_MIGRATION_DIAGNOSTIC run=%s runErr=%s restoreListed=%t restoreApplied=%t triggerInstalled=%t triggerSetup=%s startError=%s migrationWaited=%t waitError=%s migrationExitInspect=%s exitValid=%t exitCode=%d migrationFailed=%t migrationLogRead=%t migrationLogError=%s migrationLogNonempty=%t sentinelObserved=%t reportResult=%s targetCheck=%s/%s cleanupCheck=%s/%s stateStatus=%s resourcesValid=%t",
+		r.RunID, forgejoMigrationFailureSafeCode(runErr), runtimeClient.targetRestoreListed, runtimeClient.targetRestoreApplied,
+		runtimeClient.triggerInstalled, runtimeClient.triggerSetupErrorCode, runtimeClient.targetMigrationStartErrorCode,
+		runtimeClient.targetMigrationWaited, runtimeClient.targetMigrationWaitErrorCode,
+		runtimeClient.targetMigrationExitInspectionErrorCode, runtimeClient.targetMigrationExitInspectionValid,
+		runtimeClient.targetMigrationExitCode, runtimeClient.targetMigrationFailed, runtimeClient.targetMigrationLogsRead,
+		runtimeClient.targetMigrationLogsErrorCode, runtimeClient.targetMigrationLogsNonempty, runtimeClient.sentinelObserved,
+		r.Result, targetStatus, targetCode, cleanupStatus, cleanupCode, stateStatus, resourcesValid)
+	if runErr == nil || runErr.Error() != "MIGRATION_FAILED" {
+		t.Errorf("target migration did not return the fixed MIGRATION_FAILED code")
+	}
+	if !forgejoMigrationFailureEvidenceAccepted(runtimeClient) {
+		t.Errorf("the pinned target migration did not fail after an actual target restore because of the synthetic event trigger")
 	}
 	assertForgejoMigrationFailureChecks(t, r)
 	if r.Adapter != "forgejo" || r.SchemaVersion != 2 || r.AdapterContractVersion != 1 || r.Result != "failed" || r.Validate() != nil {
@@ -120,7 +144,7 @@ func runForgejoMigrationFailureAcceptance(t *testing.T, client *engine.Engine, b
 	if persisted.Result == "passed" || r.Outcome() == "passed" {
 		t.Fatal("a passed report was published for a failed target migration")
 	}
-	run, err := store.Load(r.RunID)
+	run, err = store.Load(r.RunID)
 	if err != nil || state.ValidateRunResources(run) != nil || run.Status != "failed" || run.AdapterID() != "forgejo" {
 		t.Fatal("terminal state does not record the owned failed Forgejo run")
 	}
@@ -144,18 +168,64 @@ func runForgejoMigrationFailureAcceptance(t *testing.T, client *engine.Engine, b
 			t.Fatal("failed report disclosed a fixture credential, content, or archive path")
 		}
 	}
-	assertForgejoFixtureRunInventoryEmpty(t, ctx, client, run)
-	t.Logf("FORGEJO_MIGRATION_FAILURE_ACCEPTED transport=%s run=%s targetMigration=MIGRATION_FAILED sentinelObserved=true sourceSHA256=%s cleanup=empty-owned-inventory report=failed", transport, r.RunID, hex.EncodeToString(sourceDigest[:]))
+	if !t.Failed() {
+		_ = assertForgejoMigrationRunInventoryEmpty(t, ctx, client, run)
+		inventoryChecked = true
+	}
+	if !t.Failed() {
+		t.Logf("FORGEJO_MIGRATION_FAILURE_ACCEPTED transport=%s run=%s targetMigration=MIGRATION_FAILED sentinelObserved=true sourceSHA256=%s cleanup=empty-owned-inventory report=failed", transport, r.RunID, hex.EncodeToString(sourceDigest[:]))
+	}
 }
 
 type forgejoMigrationFailureRuntime struct {
 	*engine.Engine
-	targetRestoreListed   bool
-	targetRestoreApplied  bool
-	triggerInstalled      bool
-	targetMigrationWaited bool
-	targetMigrationFailed bool
-	sentinelObserved      bool
+	targetRestoreListed                    bool
+	targetRestoreApplied                   bool
+	triggerInstalled                       bool
+	targetMigrationWaited                  bool
+	targetMigrationFailed                  bool
+	triggerSetupErrorCode                  string
+	targetMigrationStartErrorCode          string
+	targetMigrationWaitErrorCode           string
+	targetMigrationExitInspectionErrorCode string
+	targetMigrationExitInspectionValid     bool
+	targetMigrationExitCode                int
+	targetMigrationLogsRead                bool
+	targetMigrationLogsErrorCode           string
+	targetMigrationLogsNonempty            bool
+	sentinelObserved                       bool
+}
+
+func newForgejoMigrationFailureRuntime(client *engine.Engine) *forgejoMigrationFailureRuntime {
+	return &forgejoMigrationFailureRuntime{
+		Engine: client, triggerSetupErrorCode: "NONE", targetMigrationStartErrorCode: "NONE",
+		targetMigrationWaitErrorCode: "NONE", targetMigrationExitInspectionErrorCode: "NOT_RUN",
+		targetMigrationLogsErrorCode: "NOT_RUN",
+	}
+}
+
+func assertForgejoMigrationRunInventoryEmpty(t *testing.T, ctx context.Context, client *engine.Engine, run state.Run) bool {
+	t.Helper()
+	allEmpty := true
+	for _, kind := range []string{"container", "network", "volume"} {
+		args := []string{kind, "ls"}
+		if kind == "container" {
+			args = append(args, "--all")
+		}
+		args = append(args, "--filter", "label=io.rehearse.run="+run.ID,
+			"--filter", "label=io.rehearse.owner="+run.OwnerID, "--format", "{{.Names}}")
+		output, err := client.Bytes(ctx, args, nil, 16<<10)
+		empty := err == nil && strings.TrimSpace(string(output)) == ""
+		t.Logf("FORGEJO_MIGRATION_INVENTORY run=%s kind=%s queryOK=%t empty=%t", run.ID, kind, err == nil, empty)
+		if !empty {
+			t.Errorf("migration failure exact-run %s inventory is not empty", kind)
+			allEmpty = false
+		}
+		for i := range output {
+			output[i] = 0
+		}
+	}
+	return allEmpty
 }
 
 func (c *forgejoMigrationFailureRuntime) Inside(ctx context.Context, run state.Run, phase, role string, args []string, input io.Reader, output io.Writer) error {
@@ -173,46 +243,187 @@ func (c *forgejoMigrationFailureRuntime) Inside(ctx context.Context, run state.R
 func (c *forgejoMigrationFailureRuntime) Start(ctx context.Context, run state.Run, phase, role string) error {
 	if phase == "target" && role == "migration" {
 		if c.triggerInstalled || !c.targetRestoreListed || !c.targetRestoreApplied || run.AdapterID() != "forgejo" || state.ValidateRunResources(run) != nil {
+			c.triggerSetupErrorCode = "SYNTHETIC_MIGRATION_INJECTION_ORDER_INVALID"
 			return errors.New("SYNTHETIC_MIGRATION_INJECTION_ORDER_INVALID")
 		}
 		input := strings.NewReader(forgejoSyntheticMigrationFailureSQL)
 		_, err := c.Engine.InsideBytes(ctx, run, "target", "db", []string{"psql", "--username=rehearse", "--dbname=rehearse", "--no-psqlrc", "--quiet", "--single-transaction", "--set=ON_ERROR_STOP=1"}, input, 4096)
 		if err != nil {
+			c.triggerSetupErrorCode = forgejoMigrationFailureSafeCode(err)
 			return errors.New("SYNTHETIC_MIGRATION_TRIGGER_SETUP_FAILED")
 		}
 		c.triggerInstalled = true
 	}
-	return c.Engine.Start(ctx, run, phase, role)
+	err := c.Engine.Start(ctx, run, phase, role)
+	if phase == "target" && role == "migration" {
+		c.targetMigrationStartErrorCode = forgejoMigrationFailureSafeCode(err)
+		if err != nil {
+			c.inspectTargetMigrationFailure(ctx, run)
+		}
+	}
+	return err
 }
 
 func (c *forgejoMigrationFailureRuntime) WaitMigration(ctx context.Context, run state.Run, phase string) error {
+	if phase == "target" {
+		c.targetMigrationWaited = true
+	}
 	err := c.Engine.WaitMigration(ctx, run, phase)
 	if phase != "target" {
 		return err
 	}
-	c.targetMigrationWaited = true
-	if err == nil || err.Error() != "MIGRATION_FAILED" || state.ValidateRunResources(run) != nil {
-		return err
+	c.targetMigrationWaitErrorCode = forgejoMigrationFailureSafeCode(err)
+	if err != nil {
+		c.inspectTargetMigrationFailure(ctx, run)
 	}
-	c.targetMigrationFailed = true
-	name := ""
+	return err
+}
+
+func (c *forgejoMigrationFailureRuntime) inspectTargetMigrationFailure(ctx context.Context, run state.Run) {
+	c.targetMigrationExitInspectionValid = false
+	c.targetMigrationExitInspectionErrorCode = "RUN_RESOURCES_INVALID"
+	if state.ValidateRunResources(run) != nil || run.AdapterID() != "forgejo" {
+		return
+	}
+	daemon, err := c.Engine.Info(ctx)
+	if err != nil {
+		c.targetMigrationExitInspectionErrorCode = forgejoMigrationFailureSafeCode(err)
+		return
+	}
+	if daemon.ID != run.DaemonID {
+		c.targetMigrationExitInspectionErrorCode = "DAEMON_ID_MISMATCH"
+		return
+	}
+	var networkResource, migrationResource, dataResource state.Resource
 	for _, resource := range run.Resources {
-		if resource.Kind == "container" && resource.Phase == "target" && resource.Role == "migration" {
-			name = resource.Name
-			break
+		if resource.Phase != "target" {
+			continue
+		}
+		switch resource.Role {
+		case "network":
+			networkResource = resource
+		case "migration":
+			migrationResource = resource
+		case "data":
+			dataResource = resource
 		}
 	}
-	if name == "" {
-		return err
+	if networkResource.Name == "" || migrationResource.Name == "" || dataResource.Name == "" {
+		c.targetMigrationExitInspectionErrorCode = "RESOURCE_UNKNOWN"
+		return
 	}
-	output, logErr := c.Engine.Bytes(ctx, []string{"container", "logs", "--tail", "100", name}, nil, 64<<10)
+	networkRaw, err := c.Engine.Bytes(ctx, []string{"network", "inspect", networkResource.Name, "--format", "{{json .}}"}, nil, 2<<20)
+	if err != nil {
+		c.targetMigrationExitInspectionErrorCode = forgejoMigrationFailureSafeCode(err)
+		return
+	}
+	network, err := engine.ParseIsolatedNetwork(networkRaw)
+	for i := range networkRaw {
+		networkRaw[i] = 0
+	}
+	if err != nil {
+		c.targetMigrationExitInspectionErrorCode = forgejoMigrationFailureSafeCode(err)
+		return
+	}
+	if err := engine.VerifyOwnership(networkResource, network.LiveResource, run.DaemonID, daemon.ID); err != nil {
+		c.targetMigrationExitInspectionErrorCode = forgejoMigrationFailureSafeCode(err)
+		return
+	}
+	allowedNames := make(map[string]bool)
+	for _, resource := range run.Resources {
+		if resource.Phase == "target" && resource.Kind == "container" {
+			allowedNames[resource.Name] = true
+		}
+	}
+	for _, endpoint := range network.Containers {
+		if !allowedNames[endpoint.Name] {
+			c.targetMigrationExitInspectionErrorCode = "NETWORK_FOREIGN_ATTACHMENT"
+			return
+		}
+	}
+	containerRaw, err := c.Engine.Bytes(ctx, []string{"container", "inspect", migrationResource.Name, "--format", "{{json .}}"}, nil, 2<<20)
+	if err != nil {
+		c.targetMigrationExitInspectionErrorCode = forgejoMigrationFailureSafeCode(err)
+		return
+	}
+	container, err := engine.ParseBoundedContainerForAdapter(containerRaw, engine.ContainerBoundary{
+		Adapter: "forgejo", Role: "migration", NetworkName: network.Name, NetworkID: network.ID,
+		DataVolumeName: dataResource.Name, ExpectedImage: forgejo.TargetImage,
+		ExpectedUser: "1000:1000", Stage: engine.ContainerStageMigrationExited,
+	})
+	for i := range containerRaw {
+		containerRaw[i] = 0
+	}
+	if err != nil {
+		c.targetMigrationExitInspectionErrorCode = forgejoMigrationFailureSafeCode(err)
+		return
+	}
+	if err := engine.VerifyOwnership(migrationResource, container.LiveResource, run.DaemonID, daemon.ID); err != nil {
+		c.targetMigrationExitInspectionErrorCode = forgejoMigrationFailureSafeCode(err)
+		return
+	}
+	c.targetMigrationExitCode = container.ExitCode
+	if container.Status != "exited" || container.Running || container.ExitCode == 0 {
+		c.targetMigrationExitInspectionErrorCode = "CONTAINER_STATE_FAILED"
+		return
+	}
+	c.targetMigrationExitInspectionValid = true
+	c.targetMigrationExitInspectionErrorCode = "NONE"
+	c.targetMigrationFailed = (c.targetMigrationStartErrorCode == "MIGRATION_FAILED" || c.targetMigrationWaitErrorCode == "MIGRATION_FAILED")
+	output, logErr := c.Engine.Bytes(ctx, []string{"container", "logs", "--tail", "100", container.ID}, nil, 64<<10)
+	c.targetMigrationLogsRead = logErr == nil
+	c.targetMigrationLogsErrorCode = forgejoMigrationFailureSafeCode(logErr)
 	if logErr == nil {
+		c.targetMigrationLogsNonempty = len(output) > 0
 		c.sentinelObserved = bytes.Contains(output, []byte(forgejoSyntheticMigrationFailureMarker))
 	}
 	for i := range output {
 		output[i] = 0
 	}
-	return err
+}
+
+func forgejoMigrationFailureEvidenceAccepted(c *forgejoMigrationFailureRuntime) bool {
+	if c == nil || !c.targetRestoreListed || !c.targetRestoreApplied || !c.triggerInstalled ||
+		!c.targetMigrationFailed || !c.targetMigrationExitInspectionValid || c.targetMigrationExitCode <= 0 ||
+		c.targetMigrationExitInspectionErrorCode != "NONE" || !c.targetMigrationLogsRead ||
+		c.targetMigrationLogsErrorCode != "NONE" || !c.targetMigrationLogsNonempty || !c.sentinelObserved {
+		return false
+	}
+	failedAtStart := c.targetMigrationStartErrorCode == "MIGRATION_FAILED" &&
+		!c.targetMigrationWaited && c.targetMigrationWaitErrorCode == "NONE"
+	failedAtWait := c.targetMigrationStartErrorCode == "NONE" &&
+		c.targetMigrationWaited && c.targetMigrationWaitErrorCode == "MIGRATION_FAILED"
+	return failedAtStart || failedAtWait
+}
+
+func forgejoMigrationReportCheck(r *report.Report, id string) (status, code string) {
+	if r == nil {
+		return "unavailable", "unavailable"
+	}
+	for _, check := range r.Checks {
+		if check.ID == id {
+			return check.Status, check.Code
+		}
+	}
+	return "missing", "missing"
+}
+
+func forgejoMigrationFailureSafeCode(err error) string {
+	if err == nil {
+		return "NONE"
+	}
+	switch err.Error() {
+	case "MIGRATION_FAILED", "SYNTHETIC_MIGRATION_TRIGGER_SETUP_FAILED", "SYNTHETIC_MIGRATION_INJECTION_ORDER_INVALID",
+		"CONTAINER_STATE_FAILED", "CONTAINER_INSPECT_INVALID", "MIGRATION_EXIT_STATUS_INVALID", "MIGRATION_EXIT_STATUS_MISMATCH",
+		"DATABASE_NOT_READY", "DOCKER_COMMAND_FAILED", "CONTAINER_EXEC_FAILED", "CONTAINER_START_FAILED",
+		"RESOURCE_OWNERSHIP_FAILED", "RESOURCE_OWNERSHIP_MISMATCH", "RESOURCE_UNKNOWN", "RUN_RESOURCES_INVALID",
+		"NETWORK_FAILED", "NETWORK_BOUNDARY_FAILED", "NETWORK_INSPECT_INVALID", "NETWORK_FOREIGN_ATTACHMENT",
+		"CONTAINER_BOUNDARY_FAILED", "CONTAINER_IMAGE_MISMATCH", "CONTAINER_USER_MISMATCH", "DAEMON_ID_MISMATCH",
+		"OPERATION_FAILED", "CANCELED":
+		return err.Error()
+	default:
+		return "OTHER"
+	}
 }
 
 func hasForgejoArgument(args []string, target string) bool {
@@ -224,15 +435,78 @@ func hasForgejoArgument(args []string, target string) bool {
 	return false
 }
 
+func TestForgejoMigrationFailureEvidenceAcceptsFastStartAndWaitFailures(t *testing.T) {
+	base := newForgejoMigrationFailureRuntime(nil)
+	if base.targetMigrationStartErrorCode != "NONE" || base.targetMigrationWaitErrorCode != "NONE" {
+		t.Fatal("unattempted migration lifecycle operations must be represented by NONE")
+	}
+	base.targetRestoreListed = true
+	base.targetRestoreApplied = true
+	base.triggerInstalled = true
+	base.targetMigrationFailed = true
+	base.targetMigrationExitInspectionValid = true
+	base.targetMigrationExitInspectionErrorCode = "NONE"
+	base.targetMigrationExitCode = 1
+	base.targetMigrationLogsRead = true
+	base.targetMigrationLogsErrorCode = "NONE"
+	base.targetMigrationLogsNonempty = true
+	base.sentinelObserved = true
+	t.Run("fast nonzero exit from start", func(t *testing.T) {
+		candidate := *base
+		candidate.targetMigrationStartErrorCode = "MIGRATION_FAILED"
+		if !forgejoMigrationFailureEvidenceAccepted(&candidate) {
+			t.Fatal("strictly inspected fast migration failure was rejected")
+		}
+	})
+	t.Run("nonzero exit from wait", func(t *testing.T) {
+		candidate := *base
+		candidate.targetMigrationStartErrorCode = "NONE"
+		candidate.targetMigrationWaited = true
+		candidate.targetMigrationWaitErrorCode = "MIGRATION_FAILED"
+		if !forgejoMigrationFailureEvidenceAccepted(&candidate) {
+			t.Fatal("strictly inspected wait migration failure was rejected")
+		}
+	})
+	for name, mutate := range map[string]func(*forgejoMigrationFailureRuntime){
+		"missing restore list":    func(c *forgejoMigrationFailureRuntime) { c.targetRestoreListed = false },
+		"missing applied restore": func(c *forgejoMigrationFailureRuntime) { c.targetRestoreApplied = false },
+		"missing trigger":         func(c *forgejoMigrationFailureRuntime) { c.triggerInstalled = false },
+		"unexpected start error":  func(c *forgejoMigrationFailureRuntime) { c.targetMigrationStartErrorCode = "CONTAINER_STATE_FAILED" },
+		"missing inspected exit":  func(c *forgejoMigrationFailureRuntime) { c.targetMigrationExitInspectionValid = false },
+		"inspection error": func(c *forgejoMigrationFailureRuntime) {
+			c.targetMigrationExitInspectionErrorCode = "CONTAINER_BOUNDARY_FAILED"
+		},
+		"zero exit code":            func(c *forgejoMigrationFailureRuntime) { c.targetMigrationExitCode = 0 },
+		"missing sentinel":          func(c *forgejoMigrationFailureRuntime) { c.sentinelObserved = false },
+		"unreadable migration logs": func(c *forgejoMigrationFailureRuntime) { c.targetMigrationLogsRead = false },
+		"log read error":            func(c *forgejoMigrationFailureRuntime) { c.targetMigrationLogsErrorCode = "DOCKER_COMMAND_FAILED" },
+		"wait error after successful start": func(c *forgejoMigrationFailureRuntime) {
+			c.targetMigrationStartErrorCode = "NONE"
+			c.targetMigrationWaited = true
+			c.targetMigrationWaitErrorCode = "CONTAINER_STATE_FAILED"
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := *base
+			candidate.targetMigrationStartErrorCode = "MIGRATION_FAILED"
+			mutate(&candidate)
+			if forgejoMigrationFailureEvidenceAccepted(&candidate) {
+				t.Fatal("incomplete or unrelated migration failure evidence was accepted")
+			}
+		})
+	}
+}
+
 func assertForgejoMigrationFailureChecks(t *testing.T, r *report.Report) {
 	t.Helper()
 	for _, id := range []string{
-		"backup.inspect", "baseline.network", "baseline.restore", "baseline.schema", "baseline.data", "baseline.files", "baseline.auth", "baseline.unauthenticated", "target.network", "target.restore", "source.unchanged", "cleanup.ownership",
+		"backup.inspect", "baseline.network", "baseline.restore", "baseline.schema", "baseline.data", "baseline.files", "baseline.auth", "baseline.unauthenticated", "target.restore", "source.unchanged", "cleanup.ownership",
 	} {
 		assertForgejoMigrationFailureCheck(t, r, id, "passed", "VALIDATED")
 	}
 	assertForgejoMigrationFailureCheck(t, r, "target.migration", "failed", "MIGRATION_FAILED")
 	for _, id := range []string{
+		"target.network",
 		"target.schema", "target.data", "target.files", "target.auth", "target.unauthenticated",
 		"recovery.network", "recovery.restore", "recovery.schema", "recovery.data", "recovery.files", "recovery.auth", "recovery.unauthenticated",
 	} {

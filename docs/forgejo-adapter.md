@@ -6,11 +6,13 @@ or versions. The image references below are immutable platform-specific
 image digests; the API probe reuses the curl 8.22.0 image pin already used by
 the Miniflux adapter.
 
-Full-fixture runtime qualification for this Forgejo pair is pending. Fixture
-creation, startup, migration, baseline/target/recovery restore, API checks and
-cleanup still need to pass together against the pinned images on each
-supported runtime. This document records the implementation contract; it is
-not a v1 qualification claim.
+The synthetic source workflow passed creation, baseline/target/old-backup
+recovery, API content checks and cleanup on Windows through a named WSL
+engine, native Linux in WSL, and the Ubuntu 24.04 CI runner. Each full run
+passed 25 checks. Final downloadable package qualification, interruption and
+failure scenarios, and the v1 review remain pending. This document records
+the bounded implementation contract, not a v1 qualification claim. Try the
+[synthetic example](../examples/forgejo/README.md) with a source build.
 
 | Role | Immutable image reference |
 | --- | --- |

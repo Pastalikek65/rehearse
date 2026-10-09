@@ -8,7 +8,7 @@ Preview preparation completed: independent implementation review, a real known-b
 
 ## Beta
 
-- The current development checkout adds bounded local run history, explicit recovery of a verified dead local process lock, and Forgejo archive/adapter code. Forgejo remains pending full-fixture qualification and is not public v0.1 support; no ready-made Forgejo fixture is claimed.
+- Development source adds bounded history, recovery of verified dead local process locks, and Forgejo archive/rehearsal commands. A synthetic Forgejo example and 25-check source-workflow results exist; Forgejo is not public v0.1 support and final packages/v1 qualification are pending.
 - Continue exercising cancellation, process interruption, malformed/large input, source stability and negative controls.
 - Development source checks cancellation during staged/source hashing and rechecks the source after cleanup; regression and independent review evidence precede the next beta release.
 - Measure time and memory on documented synthetic datasets.
@@ -16,7 +16,7 @@ Preview preparation completed: independent implementation review, a real known-b
 
 ## Production v1
 
-- Complete full-fixture runtime qualification of the development Forgejo 15.0.9 → 16.0.5 adapter, including migration, repository/file checks, clean old-backup recovery and cleanup. Keep its release status pending until these checks pass.
+- Finish Forgejo failure/interruption scenarios, distributed package acceptance and independent v1 review. Baseline/target/old-backup recovery, repository/file API checks and cleanup passed together in the synthetic source workflow; keep release status pending until the remaining gates pass.
 - Publish and qualify the versioned Forgejo adapter contract only after full-fixture evidence is complete.
 - Complete independent security/product reviews and close critical/high findings.
 - Qualify the published Windows/Linux x64 packages and provide release notes, SHA-256 values and a license inventory.

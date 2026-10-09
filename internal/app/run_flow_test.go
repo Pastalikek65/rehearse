@@ -242,7 +242,7 @@ func TestRunFailureLeavesDependentChecksNotRunAndCleansOwnedResources(t *testing
 	runtime := &flowRuntime{migrationErr: errors.New("synthetic private migration diagnostic")}
 	r, err := runWithRuntime(context.Background(), cfg, store, runtime, fixtureAuth())
 	if err == nil || err.Error() != "MIGRATION_FAILED" {
-		t.Fatalf("migration failure = %v, want MIGRATION_FAILED", err)
+		t.Fatalf("migration failure = %v (%s), want MIGRATION_FAILED", err, safeOperationDiagnostic(err))
 	}
 	if r == nil || r.Result != "failed" || runtime.cleanupCalls != 1 {
 		t.Fatalf("failure report/cleanup = %#v / %d", r, runtime.cleanupCalls)

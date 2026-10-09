@@ -188,12 +188,12 @@ func runWithRuntime(ctx context.Context, cfg spec.Config, store *state.Store, cl
 	}
 	intent, err := store.Create(daemon.ID)
 	if err != nil {
-		return nil, code("OPERATION_FAILED")
+		return nil, withStateDiagnostic("OPERATION_FAILED", err)
 	}
 	result = report.New(intent.ID, platform, time.Now().UTC())
 	lock, err := store.AcquireRunLock(intent.ID)
 	if err != nil {
-		return result, code("OPERATION_FAILED")
+		return result, withStateDiagnostic("OPERATION_FAILED", err)
 	}
 	locked := true
 	defer func() {
@@ -205,7 +205,7 @@ func runWithRuntime(ctx context.Context, cfg spec.Config, store *state.Store, cl
 	}()
 	runDir, err := store.RunDir(intent.ID)
 	if err != nil {
-		return result, code("OPERATION_FAILED")
+		return result, withStateDiagnostic("OPERATION_FAILED", err)
 	}
 	var staged *state.Backup
 	cleanupDone := false
@@ -296,7 +296,8 @@ func runWithRuntime(ctx context.Context, cfg spec.Config, store *state.Store, cl
 
 	backup, err := store.StageBackup(ctx, lock, cfg.BackupPath)
 	if err != nil {
-		return result, fail("backup.inspect", "BACKUP_FAILED")
+		failure := fail("backup.inspect", "BACKUP_FAILED")
+		return result, withStateDiagnostic(failure.Error(), err)
 	}
 	staged = &backup
 	result.BackupSHA256 = backup.SHA256

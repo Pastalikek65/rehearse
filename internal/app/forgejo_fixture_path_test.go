@@ -9,7 +9,7 @@ import (
 )
 
 func TestResolveForgejoFixtureCandidateDirectoryRequiresExactRepositorySibling(t *testing.T) {
-	repoRoot := t.TempDir() + "-repo"
+	repoRoot := filepath.Join(canonicalForgejoFixtureTestDir(t), "repo")
 	packageDir := filepath.Join(repoRoot, "internal", "app")
 	controlRoot := filepath.Join(filepath.Dir(repoRoot), ".control", "rehearse-runtime")
 	if err := os.MkdirAll(packageDir, 0700); err != nil {
@@ -27,7 +27,8 @@ func TestResolveForgejoFixtureCandidateDirectoryRequiresExactRepositorySibling(t
 	t.Run("exact absolute candidate override", func(t *testing.T) {
 		got, err := resolveForgejoFixtureCandidateDirectory(foreignSource, expected, packageDir)
 		if err != nil {
-			t.Fatal(err)
+			rawMatches, resolvedOK, ancestorSymlink := fixturePathDiagnostics(packageDir)
+			t.Fatalf("%v (rawEqualsResolved=%t evalSucceeded=%t ancestorSymlink=%t)", err, rawMatches, resolvedOK, ancestorSymlink)
 		}
 		if got != expected {
 			t.Fatalf("candidate directory=%q, want %q", got, expected)
@@ -43,7 +44,7 @@ func TestResolveForgejoFixtureCandidateDirectoryRequiresExactRepositorySibling(t
 		}
 	})
 	t.Run("outside override rejected without writes", func(t *testing.T) {
-		outside := filepath.Join(t.TempDir(), "candidate-output")
+		outside := filepath.Join(canonicalForgejoFixtureTestDir(t), "candidate-output")
 		got, err := resolveForgejoFixtureCandidateDirectory(foreignSource, outside, packageDir)
 		if err == nil || got != "" {
 			t.Fatalf("outside override returned (%q, %v), want fixed path error", got, err)
@@ -55,7 +56,7 @@ func TestResolveForgejoFixtureCandidateDirectoryRequiresExactRepositorySibling(t
 }
 
 func TestForgejoFixtureCandidateDirectoryRefusesNonNativeSourceBeforeCreatingParents(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalForgejoFixtureTestDir(t)
 	packageDir := filepath.Join(root, "internal", "app")
 	if err := os.MkdirAll(packageDir, 0700); err != nil {
 		t.Fatal(err)
@@ -75,14 +76,15 @@ func TestForgejoFixtureCandidateDirectoryRefusesNonNativeSourceBeforeCreatingPar
 }
 
 func TestCreateForgejoFixtureCandidateDirectoryCreatesOnlyExactChild(t *testing.T) {
-	root := t.TempDir()
+	root := canonicalForgejoFixtureTestDir(t)
 	controlRoot := filepath.Join(root, ".control", "rehearse-runtime")
 	if err := os.MkdirAll(controlRoot, 0700); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(controlRoot, "candidates")
 	if err := createForgejoFixtureCandidateDirectory(path); err != nil {
-		t.Fatal(err)
+		rawMatches, resolvedOK, ancestorSymlink := fixturePathDiagnostics(controlRoot)
+		t.Fatalf("%v (rawEqualsResolved=%t evalSucceeded=%t ancestorSymlink=%t)", err, rawMatches, resolvedOK, ancestorSymlink)
 	}
 	info, err := os.Lstat(path)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
@@ -95,4 +97,41 @@ func TestCreateForgejoFixtureCandidateDirectoryCreatesOnlyExactChild(t *testing.
 	if _, err := os.Lstat(filepath.Dir(filepath.Dir(missingParent))); !os.IsNotExist(err) {
 		t.Fatalf("missing parent was created: %v", err)
 	}
+}
+
+func fixturePathDiagnostics(path string) (rawEqualsResolved, evalSucceeded, ancestorSymlink bool) {
+	abs, absErr := filepath.Abs(path)
+	if absErr != nil {
+		return false, false, false
+	}
+	resolved, evalErr := filepath.EvalSymlinks(abs)
+	if evalErr == nil {
+		evalSucceeded = true
+		rawEqualsResolved = sameForgejoFixturePath(filepath.Clean(abs), filepath.Clean(resolved))
+	}
+	for current := filepath.Clean(abs); ; current = filepath.Dir(current) {
+		info, err := os.Lstat(current)
+		if err == nil && info.Mode()&os.ModeSymlink != 0 {
+			ancestorSymlink = true
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+	}
+	return rawEqualsResolved, evalSucceeded, ancestorSymlink
+}
+
+func canonicalForgejoFixtureTestDir(t *testing.T) string {
+	t.Helper()
+	path := t.TempDir()
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		t.Fatalf("canonicalize test temp directory: %v", err)
+	}
+	abs, err := filepath.Abs(resolved)
+	if err != nil {
+		t.Fatalf("resolve test temp directory: %v", err)
+	}
+	return filepath.Clean(abs)
 }

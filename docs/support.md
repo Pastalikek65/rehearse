@@ -1,6 +1,13 @@
 # Support and limitations
 
-The immutable public v0.1 evaluation preview supports Miniflux only. A source test passing does not qualify a downloadable package or every installation of a platform. This document records the tested environment and support boundaries; the release's attached `verification.json` records acceptance of each exact downloadable archive after it was built. `BUILD.json` intentionally retains its immutable build-time `packageAcceptance: not-run` status. The current development checkout contains Forgejo adapter code, but its full-fixture qualification is pending and it is not a public v0.1 feature.
+The immutable public v0.1 evaluation preview supports Miniflux only. A source
+test passing does not qualify a downloadable package or every installation of
+a platform. The release's attached `verification.json` records acceptance of
+each exact downloadable archive after it was built; `BUILD.json` retains its
+immutable build-time `packageAcceptance: not-run` status. The development
+Forgejo synthetic source workflow passed on Windows through named WSL,
+native Linux in WSL and Ubuntu CI. Final packages and v1 review are pending;
+Forgejo is not a public v0.1 feature.
 
 | Environment | Requirement | Current evidence |
 | --- | --- | --- |
@@ -27,7 +34,7 @@ These checks concern the supplied Miniflux backup. They do not test production c
 - In the released 0.1.0 preview, staged/original backup hashes are bounded by the file-size limit but are not cancellable mid-hash. Current development source checks cancellation between bounded reads and performs the final source rehash after its independent cleanup attempt. Cancellation cannot interrupt a filesystem read already blocked inside the operating system. These development changes are not part of the immutable 0.1.0 packages.
 - Local state retains the staged backup after resources are cleaned. Remove the exact completed run directory when you no longer need its evidence and private backup.
 - Outbound isolation has been tested against controlled HTTP, DNS and direct-IP targets. It is not a universal protocol or hostile-container security claim.
-- The development checkout recognizes a fixed Forgejo 15.0.9 → 16.0.5 configuration and operator-provided offline archive. Full-fixture creation, startup, migration, restore, API checks, recovery and cleanup qualification is pending. Do not treat the config parser, source tests, or archive packer as proof that Forgejo is supported or that a ready-made fixture is available. See the [Forgejo adapter contract](forgejo-adapter.md).
+- Development Forgejo 15.0.9 → 16.0.5 has a [synthetic example](../examples/forgejo/README.md) with 25-check source-workflow results. These results cover its baseline, migrated target, clean old-backup recovery, API content and owned cleanup; final packages, interruptions, failures and v1 review remain pending. The archive packer alone does not establish database or application validity. See the [adapter contract](forgejo-adapter.md).
 - Development-only `archive` and `history` commands are not included in the public v0.1 package. The archive command only packages operator-provided database and data files; it cannot prove those files form a consistent snapshot. See [history and recovery](history-recovery.md).
 - No user pilots, adoption statistics or v1 certification is claimed at this stage.
 

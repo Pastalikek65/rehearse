@@ -1,6 +1,11 @@
 # Configuration
 
-Rehearse uses one versioned JSON configuration format. The immutable public v0.1 release supports only Miniflux `2.2.19` → `2.3.3` with PostgreSQL `17.11`. The current development source also parses the fixed Forgejo `15.0.9` → `16.0.5` pair, but its full-fixture qualification is pending; it is not public v0.1 support. The Miniflux negative-control target `2.3.0` is reserved for failure-fixture testing and is rejected by normal configuration parsing.
+Rehearse uses one versioned JSON configuration format. The immutable public
+v0.1 release supports only Miniflux `2.2.19` → `2.3.3` with PostgreSQL `17.11`.
+Development source also supports the fixed Forgejo `15.0.9` → `16.0.5`
+synthetic source workflow; final package qualification is pending. It is not
+public v0.1 support. The Miniflux negative-control target `2.3.0` is reserved
+for failure-fixture testing and is rejected by normal configuration parsing.
 
 ```json
 {
@@ -38,7 +43,10 @@ For Miniflux, the backup must be a PostgreSQL custom-format archive (for example
 
 ## Development-only Forgejo configuration
 
-The current development parser accepts this fixed pair, but full-fixture runtime qualification has not passed. This is not a supported public v0.1 configuration. The path is an operator-provided offline archive; this example does not imply that a ready-made Forgejo fixture is available.
+This development configuration is not supported by public v0.1 packages.
+Use an operator-provided consistent archive or the deliberately public
+[synthetic example](../examples/forgejo/README.md). Source workflows passed;
+final package qualification and v1 review remain pending.
 
 ```json
 {

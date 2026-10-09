@@ -6,7 +6,12 @@ Test a self-hosted application upgrade from a backup, compare its data, and prov
 
 Rehearse is a local Go CLI for maintainers who want evidence before an upgrade. It restores your supplied backup into three fresh environments: the current application, the upgraded application, and a clean recovery instance of the old application. It writes a JSON/HTML report and removes only resources it can prove it owns.
 
-**Public v0.1 support:** Miniflux **2.2.19 → 2.3.3** with PostgreSQL **17.11**, using pinned Linux amd64 images. Windows requires an explicitly selected WSL2 distribution. See [support and limitations](docs/support.md) before using your own backup. The current development checkout also contains a Forgejo adapter and archive/history/recovery commands, but the Forgejo full-fixture qualification is pending; these development features are not part of the immutable v0.1 release.
+**Public v0.1 support:** Miniflux **2.2.19 → 2.3.3** with PostgreSQL **17.11**,
+using pinned Linux amd64 images. Windows requires an explicitly selected WSL2
+distribution. See [support](docs/support.md) before using your own backup.
+Development source also has a Forgejo adapter and archive/history/recovery
+commands. Its synthetic source workflow passed; final package and v1
+qualification remain pending. These features are not part of immutable v0.1.
 
 ## Install
 
@@ -90,7 +95,11 @@ The source backup is read, hashed, and copied; it is never deliberately modified
 
 ## Development-only Forgejo commands
 
-These commands are present in the current source checkout; they are not included in the public v0.1 package, and Forgejo remains pending full-fixture qualification. See the [Forgejo adapter contract](docs/forgejo-adapter.md) and [history and recovery guide](docs/history-recovery.md).
+These commands are present in the current source checkout; they are not
+included in the public v0.1 package. A [synthetic Forgejo example](examples/forgejo/README.md)
+is now available for source builds; final package qualification is pending.
+See the [Forgejo adapter contract](docs/forgejo-adapter.md) and
+[history and recovery guide](docs/history-recovery.md).
 
 ```sh
 ./bin/rehearse archive --database <database.pgdump> --data <forgejo-data.tar> --output <new.zip>
@@ -108,6 +117,7 @@ Every phase uses fresh named volumes and an internal isolated network. Applicati
 - [Architecture](docs/architecture.md) and [rehearsal checks](docs/rehearsal-flow.md)
 - [State and interruption recovery](docs/state-storage.md)
 - [Forgejo adapter contract (development; qualification pending)](docs/forgejo-adapter.md) and [run history and recovery](docs/history-recovery.md)
+- [Measured performance and scope](docs/performance.md)
 - [Roadmap](docs/roadmap.md)
 - [Türkçe hızlı başlangıç](docs/quickstart.tr.md)
 - [Contributing](CONTRIBUTING.md) and [third-party inventory](THIRD_PARTY.md)
