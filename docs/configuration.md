@@ -1,10 +1,10 @@
 # Configuration
 
-Rehearse uses one versioned JSON configuration format. The immutable public
-v0.1 release supports only Miniflux `2.2.19` → `2.3.3` with PostgreSQL `17.11`.
-Development source also supports the fixed Forgejo `15.0.9` → `16.0.5`
-synthetic source workflow; final package qualification is pending. It is not
-public v0.1 support. The Miniflux negative-control target `2.3.0` is reserved
+Rehearse uses one versioned JSON configuration format. The public v0.2.0 beta
+supports Miniflux `2.2.19` → `2.3.3` and Forgejo `15.0.9` → `16.0.5`, both
+with PostgreSQL `17.11`. Both beta packages passed the bundled synthetic
+workflows; production v1 qualification remains pending. The immutable v0.1
+package supports Miniflux only. The Miniflux negative-control target `2.3.0` is reserved
 for failure-fixture testing and is rejected by normal configuration parsing.
 
 ```json
@@ -26,14 +26,14 @@ The configuration has these fields:
 | Field | Meaning |
 | --- | --- |
 | `schemaVersion` | Required integer. Currently `1`. |
-| `adapter` | Required adapter identifier. Public v0.1 accepts `miniflux`; development source also recognizes `forgejo` pending qualification. |
+| `adapter` | Required adapter identifier: `miniflux` or `forgejo` in the beta; `miniflux` only in v0.1. |
 | `sourceVersion` | Required canonical stable SemVer for the selected adapter's old version. |
 | `targetVersion` | Required canonical stable SemVer for the selected adapter's target version. |
 | `postgresVersion` | Required PostgreSQL version. Both fixed adapter pairs use `17.11`. |
-| `backupPath` | Required, nonblank path to the adapter's supplied backup. Miniflux uses a PostgreSQL custom-format dump; development Forgejo uses the offline ZIP described below. |
-| `authEnvRefs` | Required object containing either only an `apiToken` environment-variable name or exactly both `username` and `password` environment-variable names. Development Forgejo requires an API token. |
+| `backupPath` | Required, nonblank path to the adapter's supplied backup. Miniflux uses a PostgreSQL custom-format dump; Forgejo uses the offline ZIP described below. |
+| `authEnvRefs` | Required object containing either only an `apiToken` environment-variable name or exactly both `username` and `password` environment-variable names. Forgejo requires an API token. |
 
-For `sourceVersion` and `targetVersion`, canonical stable SemVer uses three numeric components without a `v` prefix, leading zeroes, prerelease, or build metadata. Syntactically valid versions still need to match the fixed version pair for the selected adapter. Public v0.1 supports only Miniflux `2.2.19` → `2.3.3`.
+For `sourceVersion` and `targetVersion`, canonical stable SemVer uses three numeric components without a `v` prefix, leading zeroes, prerelease, or build metadata. Syntactically valid versions still need to match the fixed version pair for the selected adapter listed above.
 
 Authentication references use uppercase environment-variable identifiers: the first character must be `A`–`Z` or `_`; later characters may also include digits. The parser validates the reference syntax but does not read environment values. Do not put passwords or API tokens in the JSON file. The runner resolves the selected variables at execution time. An authentication object cannot combine modes or include an unused blank key.
 
@@ -41,12 +41,12 @@ The parser rejects input larger than 64 KiB, invalid or trailing JSON, duplicate
 
 For Miniflux, the backup must be a PostgreSQL custom-format archive (for example, produced by `pg_dump --format=custom`); a `.sql` text dump is unsupported. The offline plan recognizes only its archive header; full inspection and restore happen during `run`. Backup paths in a CLI configuration are resolved relative to that configuration file.
 
-## Development-only Forgejo configuration
+## Forgejo configuration
 
-This development configuration is not supported by public v0.1 packages.
+This configuration is supported by the v0.2.0 beta and is absent from v0.1.
 Use an operator-provided consistent archive or the deliberately public
-[synthetic example](../examples/forgejo/README.md). Source workflows passed;
-final package qualification and v1 review remain pending.
+[synthetic example](../examples/forgejo/README.md). See [support](support.md)
+for exact package evidence and limits; production v1 review remains pending.
 
 ```json
 {
@@ -62,6 +62,6 @@ final package qualification and v1 review remain pending.
 }
 ```
 
-The ZIP contains `manifest.json`, `database.pgdump`, and `forgejo-data.tar` as specified in the [Forgejo adapter contract](forgejo-adapter.md). The development `archive` command can package operator-provided inputs, but it does not prove cross-file consistency; stop Forgejo before capturing the database and data TAR. Treat the archive as private instance data. See [run history and recovery](history-recovery.md) for the development-only history/recovery commands.
+The ZIP contains `manifest.json`, `database.pgdump`, and `forgejo-data.tar` as specified in the [Forgejo adapter contract](forgejo-adapter.md). The beta's `archive` command can package operator-provided inputs, but it does not prove cross-file consistency; stop Forgejo before capturing the database and data TAR. Treat the archive as private instance data. See [run history and recovery](history-recovery.md) for the beta's history/recovery commands.
 
 This format deliberately has no fields for Compose documents, image names, commands, URLs, port mappings, or mounts. Runtime services and image references come from the adapter's reviewed implementation and version manifest.

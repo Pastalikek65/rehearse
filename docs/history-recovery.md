@@ -1,5 +1,7 @@
 # Run history and dead-process recovery
 
+The `history` and `recover` commands are included in the public v0.2.0 beta. The immutable v0.1.0 package does not include them. Recovery only clears a verified dead local process lock; it does not resume the run or clean Docker resources.
+
 Use history to inspect the local Rehearse run store without reading reports or backup contents:
 
     rehearse history

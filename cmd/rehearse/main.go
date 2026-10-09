@@ -22,7 +22,7 @@ import (
 	"github.com/Pastalikek65/rehearse/internal/state"
 )
 
-var version = "0.2.0-development"
+var version = "1.0.0-development"
 
 const rootUsage = `Usage: rehearse <command> [options]
 

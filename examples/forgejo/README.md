@@ -11,9 +11,14 @@ licenses and notices. See [the third-party inventory](../../THIRD_PARTY.md)
 and [fixture licensing metadata](fixture.json) for the embedded paths and
 license texts; the archive as a whole is not described by one license.
 
-The current source checkout supports this example. Immutable public v0.1
-packages are Miniflux-only. Final Forgejo package acceptance and v1 release
-are still pending; see [support](../../docs/support.md).
+The public [v0.2.0 beta](https://github.com/Pastalikek65/rehearse/releases/tag/v0.2.0)
+includes this example and the fixed Forgejo 15.0.9 → 16.0.5 adapter. Both
+downloadable packages passed its 25-check rehearsal and platform-specific
+interruption/recovery checks. Read the [exact package verification record](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/verification.json),
+the actual [Forgejo HTML report](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.html),
+and [Forgejo JSON report](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.json).
+The immutable v0.1.0 package is Miniflux-only. Production v1 qualification
+remains pending; see [support](../../docs/support.md).
 
 From the repository root after building `bin/rehearse`:
 
@@ -31,6 +36,8 @@ $env:REHEARSE_FORGEJO_EXAMPLE_TOKEN = (Get-Content -Raw examples/forgejo/fixture
 .\bin\rehearse.exe run --wsl-distro MyRehearsalWSL examples/forgejo/rehearse.json
 ```
 
+Use `./bin/rehearse` after a source build, or `./rehearse` in the extracted
+Linux package (`.\bin\rehearse.exe` or `.\rehearse.exe` in Windows PowerShell).
 The runner uses fresh volumes and private networks and publishes no app port.
 It tests the baseline, migrates a separate target, and restores the original
 backup into a fresh old-version recovery instance. A passing Forgejo report

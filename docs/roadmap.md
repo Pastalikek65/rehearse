@@ -1,24 +1,20 @@
 # Roadmap
 
-## Working MVP
+## Immutable v0.1 preview
 
-The immutable public v0.1 release supports Miniflux 2.2.19 → 2.3.3 rehearsal from a custom PostgreSQL archive, three independent restore environments, fixed API/data checks, private local state, JSON/HTML reports, and ownership-checked cleanup. It does not include the development Forgejo adapter or archive/history/recovery commands.
+The public v0.1.0 preview supports Miniflux 2.2.19 → 2.3.3 with PostgreSQL 17.11. Its package contains three independent restore environments, fixed API and data checks, private local state, JSON/HTML reports, and ownership-checked cleanup. It does not include Forgejo, archive creation, run history, or dead-process recovery. Its published artifacts remain unchanged.
 
-Preview preparation completed: independent implementation review, a real known-bad migration negative control, native Windows/WSL and Linux-in-WSL rehearsal tests, the synthetic archive and source CI evidence. Every release archive must separately pass post-build acceptance before publication; the release's `verification.json` identifies that immutable artifact and its results. The MVP remains an evaluation preview, not production v1.
+## Released v0.2.0 beta
 
-## Beta
+The [v0.2.0 beta](https://github.com/Pastalikek65/rehearse/releases/tag/v0.2.0) adds Forgejo 15.0.9 → 16.0.5, archive/history/recovery commands, and a synthetic Forgejo example. Both application pairs use PostgreSQL 17.11 and pinned Linux amd64 images. Exact Windows and Linux packages passed both bundled adapter rehearsals and their platform-specific interruption/recovery checks; see [verification.json](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/verification.json).
 
-- Development source adds bounded history, recovery of verified dead local process locks, and Forgejo archive/rehearsal commands. A synthetic Forgejo example and 25-check source-workflow results exist; Forgejo is not public v0.1 support and final packages/v1 qualification are pending.
-- Continue exercising cancellation, process interruption, malformed/large input, source stability and negative controls.
-- Development source checks cancellation during staged/source hashing and rechecks the source after cleanup; regression and independent review evidence precede the next beta release.
-- Measure time and memory on documented synthetic datasets.
-- Repeat clean-profile installation and primary-workflow acceptance for each future beta archive.
+Three historic intermittent Windows state/staging test failures remain unresolved. Their original causes were not captured, and successful repeats plus a separate controlled file-share-denial test do not establish a fix. The separate native-Linux controlled egress-canary qualification also remains open. See [support and limitations](support.md) for the operator guidance and evidence scope.
 
 ## Production v1
 
-- Finish Forgejo failure/interruption scenarios, distributed package acceptance and independent v1 review. Baseline/target/old-backup recovery, repository/file API checks and cleanup passed together in the synthetic source workflow; keep release status pending until the remaining gates pass.
-- Publish and qualify the versioned Forgejo adapter contract only after full-fixture evidence is complete.
-- Complete independent security/product reviews and close critical/high findings.
-- Qualify the published Windows/Linux x64 packages and provide release notes, SHA-256 values and a license inventory.
+- Resolve the open Windows storage reliability finding or obtain sufficient diagnostic evidence to assess it.
+- Complete and review the native-Linux controlled egress qualification.
+- Finish independent product and security review, close critical/high findings, then build and accept exact v1 packages for Windows and Linux.
+- Recheck the fixed Forgejo version pair before a release after its documented support window ends on 29 October 2026.
 
-See the [Forgejo adapter contract](forgejo-adapter.md) and [history/recovery behavior](history-recovery.md). Additional adapters and arbitrary application versions require their own tested contracts; they are not promises of current compatibility.
+Additional adapters and arbitrary application versions require separate tested contracts. The beta does not imply their compatibility. See the [Forgejo adapter contract](forgejo-adapter.md) and [history/recovery behavior](history-recovery.md).
