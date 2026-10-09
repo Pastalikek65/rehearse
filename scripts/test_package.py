@@ -26,6 +26,7 @@ class PackageOutputTests(unittest.TestCase):
             "examples/forgejo/rehearse.json",
             "docs/performance.md", "docs/performance/windows-parser-8MiB.json",
             "docs/performance/windows-parser-64MiB.json",
+            "docs/performance/windows-rehearsal-0.2.json",
             "third_party/forgejo.LICENSE", "third_party/gitea.LICENSE", "third_party/git.COPYING",
         }
         with tempfile.TemporaryDirectory() as temporary:

@@ -1,0 +1,383 @@
+{
+  "schemaVersion": 1,
+  "measurementDate": "2026-10-09",
+  "host": {
+    "os": "Windows x64",
+    "build": 26300,
+    "cpu": "AMD Ryzen 9 8945HX",
+    "logicalProcessors": 32
+  },
+  "transport": {
+    "cli": "native Windows amd64",
+    "engine": "local socket inside explicitly selected disposable Ubuntu24.04.5 WSL2 distribution",
+    "dockerEngine": "29.8.2",
+    "dockerCompose": "5.6.0"
+  },
+  "method": {
+    "samplesPerAdapter": 1,
+    "timer": "from native CLI process Start through exit, includes run cleanup and about10ms sampling overhead",
+    "memory": "sampled Windows Process.PeakWorkingSet64; CLI only, excludes WSL/children/containers",
+    "images": "already present from qualification; no cold pull measurement",
+    "cache": "uncontrolled",
+    "hostLoad": "shared qualification preparation",
+    "dataset": "bundled small synthetic fixtures; no production data and no large-database throughput inference",
+    "memorySamplingIntervalApproxMilliseconds": 10
+  },
+  "records": [
+    {
+      "adapter": "forgejo",
+      "sourceCommit": "9595ffd75a527416c7adbdd7a0bfdef9f6a927b0",
+      "version": "0.2.0",
+      "target": "windows/amd64",
+      "archiveBytes": 2663052,
+      "archiveSha256": "b2dedfa256fd3325722c4a000005c3794884d5ac8f21d0c2b94e8ca13763daaa",
+      "runId": "b41148d0b0b7465458aed9b6991bcfe7",
+      "requiredChecks": 25,
+      "passedChecks": 25,
+      "realRehearsalSeconds": 230.7153119,
+      "cliPeakWorkingSetBytes": 19496960,
+      "cliMemoryQueries": 10586,
+      "peakMetric": "Sampled Windows Process.PeakWorkingSet64; native CLI only, excludes WSL/children/containers",
+      "sourceVersion": "15.0.9",
+      "targetVersion": "16.0.5",
+      "fixtureBytes": 78904,
+      "fixtureSha256": "b165b79a91d96f422b494d01b222c602be19345951ef4069acad8cf737237905",
+      "reportSchemaVersion": 2,
+      "outcome": "passed",
+      "sourceUnchanged": true,
+      "repeatedCleanup": true,
+      "allRunInventoriesEmpty": true,
+      "checks": [
+        {
+          "id": "backup.inspect",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "baseline.network",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "baseline.restore",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "baseline.schema",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "baseline.data",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "baseline.files",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "baseline.auth",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "baseline.unauthenticated",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.network",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.restore",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.migration",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.schema",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.data",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.files",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.auth",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.unauthenticated",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "recovery.network",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "recovery.restore",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "recovery.schema",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "recovery.data",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "recovery.files",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "recovery.auth",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "recovery.unauthenticated",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "source.unchanged",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "cleanup.ownership",
+          "status": "passed",
+          "code": "VALIDATED"
+        }
+      ],
+      "dataProjections": {
+        "baseline": {
+          "sha256": "308b73ef11fe7869cc1afb4eae29a43c9520eb73e341c8f1e5efcaf846ddb184",
+          "rows": 2,
+          "bytes": 185
+        },
+        "recovery": {
+          "sha256": "308b73ef11fe7869cc1afb4eae29a43c9520eb73e341c8f1e5efcaf846ddb184",
+          "rows": 2,
+          "bytes": 185
+        },
+        "target": {
+          "sha256": "308b73ef11fe7869cc1afb4eae29a43c9520eb73e341c8f1e5efcaf846ddb184",
+          "rows": 2,
+          "bytes": 185
+        }
+      },
+      "fileProjections": {
+        "baseline": {
+          "sha256": "579c0268cf02e0d929d4db60d7781c87b57ab3c5f2d9e95f5da215072ec7e311",
+          "rows": 23,
+          "bytes": 3162
+        },
+        "recovery": {
+          "sha256": "579c0268cf02e0d929d4db60d7781c87b57ab3c5f2d9e95f5da215072ec7e311",
+          "rows": 23,
+          "bytes": 3162
+        },
+        "target": {
+          "sha256": "579c0268cf02e0d929d4db60d7781c87b57ab3c5f2d9e95f5da215072ec7e311",
+          "rows": 23,
+          "bytes": 3162
+        }
+      },
+      "evidenceDigests": {
+        "acceptance.json": "04173b2ac74d51578b5e2f275500ea596aa8a105c9781e1c393138b30593277d",
+        "report.json": "1e88f12b6912fe4c6c3757bed452e9394e18940a21c8de064850fafb39f2da6c",
+        "report.html": "ece52f54153318bdc32b6c352a09e380e804c5ebca3361417ff44e0dc458cc31"
+      },
+      "executableSha256": "45e2da0cca470e7f2d5088712e75f3b181702dc1e1fe4d7bbfd17eaa310c298b"
+    },
+    {
+      "adapter": "miniflux",
+      "sourceCommit": "9595ffd75a527416c7adbdd7a0bfdef9f6a927b0",
+      "version": "0.2.0",
+      "target": "windows/amd64",
+      "archiveBytes": 2663052,
+      "archiveSha256": "b2dedfa256fd3325722c4a000005c3794884d5ac8f21d0c2b94e8ca13763daaa",
+      "runId": "503beeb5c0d4ee2b071452429654169e",
+      "requiredChecks": 23,
+      "passedChecks": 23,
+      "realRehearsalSeconds": 142.2936206,
+      "cliPeakWorkingSetBytes": 18276352,
+      "cliMemoryQueries": 6445,
+      "peakMetric": "Sampled Windows Process.PeakWorkingSet64; native CLI only, excludes WSL/children/containers",
+      "sourceVersion": "2.2.19",
+      "targetVersion": "2.3.3",
+      "fixtureBytes": 51897,
+      "fixtureSha256": "27073679601eadc2e414bccac63f0a29ab517cc496de76e260890b909f856c14",
+      "reportSchemaVersion": 1,
+      "outcome": "passed",
+      "sourceUnchanged": true,
+      "repeatedCleanup": true,
+      "allRunInventoriesEmpty": true,
+      "checks": [
+        {
+          "id": "backup.inspect",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "baseline.network",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "baseline.restore",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "baseline.schema",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "baseline.data",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "baseline.auth",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "baseline.unauthenticated",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.network",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.restore",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.migration",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.schema",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.data",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.removed-transformation",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.auth",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "target.unauthenticated",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "recovery.network",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "recovery.restore",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "recovery.schema",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "recovery.data",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "recovery.auth",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "recovery.unauthenticated",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "source.unchanged",
+          "status": "passed",
+          "code": "VALIDATED"
+        },
+        {
+          "id": "cleanup.ownership",
+          "status": "passed",
+          "code": "VALIDATED"
+        }
+      ],
+      "dataProjections": {
+        "baseline": {
+          "sha256": "7f028f8bb441b074da31dca4f33e25d7c94c22622b52f8675837eb2c172ffdcc",
+          "rows": 7,
+          "bytes": 1105
+        },
+        "recovery": {
+          "sha256": "7f028f8bb441b074da31dca4f33e25d7c94c22622b52f8675837eb2c172ffdcc",
+          "rows": 7,
+          "bytes": 1105
+        },
+        "target": {
+          "sha256": "7f028f8bb441b074da31dca4f33e25d7c94c22622b52f8675837eb2c172ffdcc",
+          "rows": 7,
+          "bytes": 1105
+        }
+      },
+      "evidenceDigests": {
+        "acceptance.json": "6f17ebe1624c398e8adad2d8e41ace328ea8967ae8b63178dcef0bb1bf2159f1",
+        "report.json": "33509164124a869f2b629b7f6bcabce757686e5732729a9caebd9e67efcc529f",
+        "report.html": "8555e0d4aae9a1f2e3a3bae24d427175a7ff775624e4f2e20dfd6bb467abb087"
+      },
+      "executableSha256": "45e2da0cca470e7f2d5088712e75f3b181702dc1e1fe4d7bbfd17eaa310c298b"
+    }
+  ]
+}

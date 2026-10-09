@@ -34,6 +34,7 @@ DISTRIBUTION_MANIFEST = (
     "docs/performance.md",
     "docs/performance/windows-parser-8MiB.json",
     "docs/performance/windows-parser-64MiB.json",
+    "docs/performance/windows-rehearsal-0.2.json",
     "examples/miniflux/README.md",
     "examples/miniflux/miniflux-source-125.dump",
     "examples/miniflux/rehearse.json",

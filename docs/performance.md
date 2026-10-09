@@ -1,6 +1,23 @@
 # Performance evidence
 
-These development measurements cover offline archive construction and planning only. The data includes a deliberately non-restorable PostgreSQL header; it must never be used as an application backup. No database restore, upgrade throughput or Docker memory claim follows from these results. Real rehearsal measurements remain pending.
+The real rehearsal measurements below use actual restorable, bundled synthetic backups. The later offline parser measurements use deliberately non-restorable PostgreSQL headers; they establish no database restore or upgrade throughput claim. No measurement here covers total Docker/WSL memory.
+
+## Actual Windows package rehearsals
+
+The same extracted Windows `0.2.0` archive from clean commit `9595ffd75a527416c7adbdd7a0bfdef9f6a927b0` was installed into separate fresh private profiles for each adapter. Its SHA-256 is `b2dedfa256fd3325722c4a000005c3794884d5ac8f21d0c2b94e8ca13763daaa`; the executable SHA-256 is `45e2da0cca470e7f2d5088712e75f3b181702dc1e1fe4d7bbfd17eaa310c298b`. These are beta measurements, not v1 performance guarantees.
+
+| Adapter | Synthetic backup | Versions | Samples | Run duration, seconds | CLI peak working set, bytes | Checks passed |
+| --- | ---: | --- | ---: | ---: | ---: | ---: |
+| Miniflux | 51,897 bytes | 2.2.19 → 2.3.3 | 1 | 142.293621 | 18,276,352 | 23 / 23 |
+| Forgejo | 78,904 bytes | 15.0.9 → 16.0.5 | 1 | 230.715312 | 19,496,960 | 25 / 25 |
+
+Each run restored baseline, target and old-backup recovery instances, compared nonempty retained-data projections, produced privacy-checked JSON/HTML reports and cleaned its owned resources. Forgejo also compared selected Git/data files. The original fixture remained unchanged, repeated cleanup succeeded and final resource queries returned empty inventories. These small fixtures exercise the supported application workflow; they do not model a large installation.
+
+The host and sampling caveats below also apply. The native Windows CLI used a local Docker socket through an explicitly selected disposable Ubuntu 24.04.5 WSL2 distribution, with Engine 29.8.2 and Compose 5.6.0. Images were already present from qualification; image downloads are excluded. Cache state was uncontrolled and other preparation shared the host. The timer spans CLI start through exit, including cleanup and approximately 10 ms memory polling. The peak measures only that CLI, excluding WSL, child processes and containers. One observation per adapter is not a percentile or sizing recommendation.
+
+[Raw real-workload records](performance/windows-rehearsal-0.2.json) retain every sample, package identity, fixture digests, check states, data-projection digests and source evidence hashes, without credentials or local paths. To repeat, extract that exact release artifact in a fresh private profile and run its bundled example using the documented platform prerequisites. A different artifact, dataset or environment is a new measurement.
+
+## Offline parser measurements
 
 The measured binary was built from clean commit `42dd0f1a2761afa672e3e1129500abbd9b9c734f`, reported `rehearse 0.2.0-development`, and has SHA-256 `c4510094991ed72e8d2c598d65dffcc15bc50406bef48253f2380280797048db`. It is an exploratory source build, not a qualified release package.
 
