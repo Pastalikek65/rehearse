@@ -64,7 +64,7 @@
     "temporaryWriteTokenRevokedBeforeCapture": true
   },
   "qualification": {
-    "stage": "source workflow only; final shipped package acceptance pending",
+    "stage": "historical source-workflow observation; package acceptance is recorded separately in each release verification.json",
     "windowsExploratoryRun": "8e7c95430e0b5b193d0408816248640a",
     "checks": 25
   }

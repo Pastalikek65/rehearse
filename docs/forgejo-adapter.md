@@ -6,17 +6,12 @@ or versions. The image references below are immutable platform-specific
 image digests; the API probe reuses the curl 8.22.0 image pin already used by
 the Miniflux adapter.
 
-The public [v0.2.0 beta](https://github.com/Pastalikek65/rehearse/releases/tag/v0.2.0)
-includes this fixed adapter pair. Both exact platform packages passed the
-25-check Forgejo rehearsal and their interruption/recovery acceptance. Review
-the [package verification record](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/verification.json)
-and actual [Forgejo HTML](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.html)
-and [JSON](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.json)
-reports. The fixed synthetic workflow also passed in Ubuntu CI. Production v1
-qualification and review remain pending. This document defines the beta's
-bounded implementation contract, not a v1 qualification claim. The
-[synthetic example](../examples/forgejo/README.md) is included in both
-downloadable packages.
+This is the supported adapter contract for the fixed Forgejo pair. It defines
+the input archive, transformations, checks and exclusions; it does not by
+itself qualify a particular executable archive. Consult that release's
+`verification.json` for exact package acceptance and tested environments. The
+[synthetic example](../examples/forgejo/README.md) is distributed with the
+product.
 
 | Role | Immutable image reference |
 | --- | --- |
@@ -195,7 +190,7 @@ the selected files only.
 The API checks demonstrate the fixture's selected behavior and files, not
 every repository object, branch, Git blob, issue, pull request, package,
 attachment, LFS object, action run, wiki or external storage location. This
-beta adapter contract has no general application-data equivalence claim beyond
+supported adapter contract has no general application-data equivalence claim beyond
 its SQL projection, fixed synthetic API checks and recovery checks.
 
 ## Upstream references

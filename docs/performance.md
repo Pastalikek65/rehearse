@@ -4,7 +4,7 @@ The real rehearsal measurements below use actual restorable, bundled synthetic b
 
 ## Actual Windows package rehearsals
 
-The same extracted Windows `0.2.0` archive from clean commit `9595ffd75a527416c7adbdd7a0bfdef9f6a927b0` was installed into separate fresh private profiles for each adapter. Its SHA-256 is `b2dedfa256fd3325722c4a000005c3794884d5ac8f21d0c2b94e8ca13763daaa`; the executable SHA-256 is `45e2da0cca470e7f2d5088712e75f3b181702dc1e1fe4d7bbfd17eaa310c298b`. These are beta measurements, not v1 performance guarantees.
+These historical observations describe only the exact Windows `0.2.0` archive from clean commit `9595ffd75a527416c7adbdd7a0bfdef9f6a927b0`, extracted into separate fresh private profiles for each adapter. Its SHA-256 is `b2dedfa256fd3325722c4a000005c3794884d5ac8f21d0c2b94e8ca13763daaa`; the executable SHA-256 is `45e2da0cca470e7f2d5088712e75f3b181702dc1e1fe4d7bbfd17eaa310c298b`. They are historical sample measurements, not acceptance evidence or performance guarantees for another release.
 
 | Adapter | Synthetic backup | Versions | Samples | Run duration, seconds | CLI peak working set, bytes | Checks passed |
 | --- | ---: | --- | ---: | ---: | ---: | ---: |
@@ -19,7 +19,7 @@ The host and sampling caveats below also apply. The native Windows CLI used a lo
 
 ## Actual Linux ELF package rehearsals (WSL2)
 
-The local Linux `0.2.0` archive from the same clean9595 source was separately extracted into fresh ext4 profiles in Ubuntu 24.04.5 inside WSL2, using its local Unix Docker socket. Its SHA-256 is `e3ba2acfe8c3a98315b4b86f0514a272b5fe1f12c831a7ff9ed3d6d05c1286b0`. This archive differs from the CI-built archive; its own acceptance is recorded here.
+These historical observations describe the local Linux `0.2.0` archive from the same clean `9595` source, separately extracted into fresh ext4 profiles in Ubuntu 24.04.5 inside WSL2, using its local Unix Docker socket. Its SHA-256 is `e3ba2acfe8c3a98315b4b86f0514a272b5fe1f12c831a7ff9ed3d6d05c1286b0`. This archive differs from the CI-built archive. Its acceptance evidence applies only to that exact archive and environment; see its archived verification record.
 
 | Adapter | Samples | Run duration, seconds | Sampled CLI RSS peak, bytes | Checks passed |
 | --- | ---: | ---: | ---: | ---: |

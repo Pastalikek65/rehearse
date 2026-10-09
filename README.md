@@ -6,17 +6,19 @@ Test a self-hosted application upgrade from a backup, compare its data, and prov
 
 Rehearse is a local Go CLI for maintainers who want evidence before an upgrade. It restores your supplied backup into three fresh environments: the current application, the upgraded application, and a clean recovery instance of the old application. It writes a JSON/HTML report and removes only resources it can prove it owns.
 
-**Public beta v0.2.0 support:** Miniflux **2.2.19 → 2.3.3** and Forgejo
+**Supported pairs:** Miniflux **2.2.19 → 2.3.3** and Forgejo
 **15.0.9 → 16.0.5**, both with PostgreSQL **17.11** and pinned Linux amd64
-images. The adapters support these fixed pairs only. Windows requires an
-explicitly selected WSL2 distribution. See [support](docs/support.md) before
-using your own backup. Production v1 is not published or qualified.
+images. Only these fixed pairs are supported. Windows requires an explicitly
+selected WSL2 distribution. See [support](docs/support.md) before using your
+own backup.
+
+See a real result: [Miniflux HTML report](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/miniflux-example-report.html) and [Forgejo HTML report](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.html), generated from the bundled synthetic examples with v0.2.0. Each new release records its own package acceptance separately.
 
 ## Install
 
-Download the [Windows x64 ZIP](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/rehearse-0.2.0-windows-amd64.zip) or [Linux x64 tar.gz](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/rehearse-0.2.0-linux-amd64.tar.gz) from the [v0.2.0 beta release](https://github.com/Pastalikek65/rehearse/releases/tag/v0.2.0). Extract it, then run `./rehearse --help` on Linux or `.\rehearse.exe --help` in Windows PowerShell. Archives are unsigned. Verify them with [SHA256SUMS](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/SHA256SUMS) and review [verification.json](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/verification.json). Docker and Compose remain external prerequisites.
+Download the Windows x64 ZIP or Linux x64 tar.gz from [GitHub Releases](https://github.com/Pastalikek65/rehearse/releases). Extract it, then run `./rehearse --help` on Linux or `.\rehearse.exe --help` in Windows PowerShell. Archives are unsigned. Compare the archive with its release's `SHA256SUMS` and inspect the artifact-specific `verification.json`. The [v1.0.0 verification record](https://github.com/Pastalikek65/rehearse/releases/download/v1.0.0/verification.json) is the acceptance source for those exact archives and environments; only a matching artifact with a passed status is accepted. Docker and Compose remain external prerequisites.
 
-The v0.2.0 verification records exact post-build acceptance for both package archives and adapters. Its attached reports are actual Linux package outputs: [Forgejo HTML](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.html), [Forgejo JSON](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.json), [Miniflux HTML](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/miniflux-example-report.html), and [Miniflux JSON](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/miniflux-example-report.json). The immutable [v0.1.0 preview](https://github.com/Pastalikek65/rehearse/releases/tag/v0.1.0) remains Miniflux-only.
+Each release's verification record is separate from immutable `BUILD.json` package metadata. The record identifies exact archive digests and the acceptance results actually completed for that release; building an archive or seeing `packageAcceptance: not-run` in `BUILD.json` does not establish runtime acceptance. Earlier release contents and support scopes remain documented in their own release records.
 
 Build from this checkout with Go 1.27:
 
@@ -93,7 +95,7 @@ The source backup is read, hashed, and copied; it is never deliberately modified
 
 ## Forgejo, archive, history, and recovery commands
 
-The v0.2.0 beta includes the Forgejo adapter and these commands. Its [synthetic Forgejo example](examples/forgejo/README.md) uses the fixed Forgejo 15.0.9 → 16.0.5 pair. Both downloadable archives passed the bundled Forgejo and Miniflux rehearsals; see [exact package verification](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/verification.json), the [Forgejo adapter contract](docs/forgejo-adapter.md), and the [history and recovery guide](docs/history-recovery.md).
+The supported Forgejo adapter and these commands use the fixed Forgejo 15.0.9 → 16.0.5 pair. See the [synthetic Forgejo example](examples/forgejo/README.md), [Forgejo adapter contract](docs/forgejo-adapter.md), and [history and recovery guide](docs/history-recovery.md). Check the selected release's verification record for exact artifact acceptance.
 
 ```sh
 ./bin/rehearse archive --database <database.pgdump> --data <forgejo-data.tar> --output <new.zip>
@@ -101,7 +103,7 @@ The v0.2.0 beta includes the Forgejo adapter and these commands. Its [synthetic 
 ./bin/rehearse recover <run-id>
 ```
 
-`archive` only packages operator-supplied files; it does not contact Docker or prove that the database and data TAR form one consistent snapshot. Stop Forgejo before capturing both files. Keep the resulting archive private. The released beta supports the fixed pair described in the adapter contract; parsing a different configuration does not imply support for other versions.
+`archive` only packages operator-supplied files; it does not contact Docker or prove that the database and data TAR form one consistent snapshot. Stop Forgejo before capturing both files. Keep the resulting archive private. Only the fixed pair described in the adapter contract is supported; parsing a different configuration does not imply support for other versions.
 
 ## Boundaries and project status
 

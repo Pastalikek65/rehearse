@@ -1,9 +1,10 @@
 # Run state and backup recovery
 
 The state store contains per-run intent, process ownership locks, and a private
-staged copy of the selected adapter backup. The v0.2.0 beta supports Miniflux
-PostgreSQL custom-format dumps and Forgejo offline ZIP archives for their fixed
-documented version pairs. The immutable v0.1 release supports Miniflux only.
+staged copy of the selected adapter backup. The supported fixed pairs use
+Miniflux PostgreSQL custom-format dumps and Forgejo offline ZIP archives, as
+documented in [support](support.md). The immutable v0.1.0 package supports
+Miniflux only.
 This remains local rehearsal state; it is not a Docker ownership proof and it
 does not authorize a resource deletion by itself.
 
@@ -39,8 +40,8 @@ token. An existing lock is never treated as stale or automatically adopted.
 `Store.InspectRunLock` exposes the recorded host and process metadata for
 diagnosis but does not clear the lock. If a process exits abnormally, an
 operator must verify that the recorded process is no longer running on the
-recorded host before recovering that run. The v0.2.0 beta includes
-`rehearse recover RUN_ID` for a verified dead local lock. The immutable v0.1
+recorded host before recovering that run. The supported CLI includes
+`rehearse recover RUN_ID` for a verified dead local lock. The immutable v0.1.0
 package does not include that command. Recovery leaves Docker resources for
 separate cleanup.
 If the metadata is missing or invalid, fail closed and verify the run manually
@@ -89,12 +90,12 @@ handle and close it after restore; do not re-open the path after verification.
 The digest detects accidental changes and corrupted state, not malicious
 changes by the trusted account that owns the rehearsal directory.
 
-The v0.2.0 beta includes `rehearse history [--limit N] [--json]` for bounded
+The supported CLI includes `rehearse history [--limit N] [--json]` for bounded
 run metadata and `rehearse recover RUN_ID` for verified dead-process lock
 recovery. If recovery succeeds, use
 `rehearse cleanup [--wsl-distro NAME] RUN_ID` separately when appropriate;
 recovery does not resume a run or remove Docker resources. `history` and
-`recover` are not in the immutable v0.1 package; `cleanup` is. See
+`recover` are not in the immutable v0.1.0 package; `cleanup` is. See
 [history and recovery](history-recovery.md) for their limits and exact
 behavior.
 

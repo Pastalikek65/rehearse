@@ -1,20 +1,33 @@
 # Roadmap
 
-## Immutable v0.1 preview
+## Supported scope
 
-The public v0.1.0 preview supports Miniflux 2.2.19 → 2.3.3 with PostgreSQL 17.11. Its package contains three independent restore environments, fixed API and data checks, private local state, JSON/HTML reports, and ownership-checked cleanup. It does not include Forgejo, archive creation, run history, or dead-process recovery. Its published artifacts remain unchanged.
+Rehearse supports the fixed Miniflux 2.2.19 → 2.3.3 and Forgejo 15.0.9 →
+16.0.5 pairs on PostgreSQL 17.11. Other adapters and version pairs require a
+separate contract, fixture, and qualification. See [support](support.md) for
+current boundaries and the selected release's `verification.json` for exact
+artifact results.
 
-## Released v0.2.0 beta
+## Reliability follow-up
 
-The [v0.2.0 beta](https://github.com/Pastalikek65/rehearse/releases/tag/v0.2.0) adds Forgejo 15.0.9 → 16.0.5, archive/history/recovery commands, and a synthetic Forgejo example. Both application pairs use PostgreSQL 17.11 and pinned Linux amd64 images. Exact Windows and Linux packages passed both bundled adapter rehearsals and their platform-specific interruption/recovery checks; see [verification.json](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/verification.json).
+The known P2 Windows state/staging reliability issue and operator guidance are
+tracked in [support](support.md). Its historical causes remain unknown; the
+controlled file-share denial test is not presented as their cause. Follow-up
+work should collect safe diagnostics if the original failure recurs and keep
+the failure path fail-closed.
 
-Three historic intermittent Windows state/staging test failures remain unresolved. Their original causes were not captured, and successful repeats plus a separate controlled file-share-denial test do not establish a fix. The separate native-Linux controlled egress-canary qualification also remains open. See [support and limitations](support.md) for the operator guidance and evidence scope.
+Network acceptance is specific to the runtime, endpoints, address families,
+and protocols listed in each release's verification record. Those results do
+not imply universal isolation across other runtimes or network paths.
 
-## Production v1
+## Future work
 
-- Resolve the open Windows storage reliability finding or obtain sufficient diagnostic evidence to assess it.
-- Complete and review the native-Linux controlled egress qualification.
-- Finish independent product and security review, close critical/high findings, then build and accept exact v1 packages for Windows and Linux.
-- Recheck the fixed Forgejo version pair before a release after its documented support window ends on 29 October 2026.
+- Recheck the fixed Forgejo pair before a release after its documented support
+  window ends on 29 October 2026.
+- Add an adapter or version pair only after its schema, data transformations,
+  API checks, recovery profile, and cleanup ownership have a tested contract.
+- Consider broader physical-Linux coverage and additional controlled network
+  paths as separate qualification work.
 
-Additional adapters and arbitrary application versions require separate tested contracts. The beta does not imply their compatibility. See the [Forgejo adapter contract](forgejo-adapter.md) and [history/recovery behavior](history-recovery.md).
+These items describe possible follow-up, not compatibility or release-date
+promises.

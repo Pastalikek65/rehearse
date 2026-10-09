@@ -1,15 +1,13 @@
 # Türkçe hızlı başlangıç
 
-Rehearse, kendi sunucunda kullandığın uygulamanın güncellemesini **sağladığın
-yedekten oluşturulan ayrı ortamlarda** dener. Yayımlanan v0.2.0 beta iki sabit çifti
-destekler: Miniflux 2.2.19 → 2.3.3 ve Forgejo 15.0.9 → 16.0.5; ikisi de
-PostgreSQL 17.11 kullanır. Değişmez v0.1 paketi yalnız Miniflux içindir.
-Windows ve Linux paketleri her iki sentetik uygulama provasını ve kesinti/
-kurtarma senaryolarını geçti. Üretim v1 yayımlanmadı ve yeterliliği onaylanmadı.
+Rehearse, kendi yedek dosyanı kullanarak uygulama güncellemesini **ayrı ve yeni
+ortamlarda** dener. Desteklenen sabit çiftler Miniflux 2.2.19 → 2.3.3 ve
+Forgejo 15.0.9 → 16.0.5'tir; ikisi de PostgreSQL 17.11 kullanır. Başka sürüm
+çiftleri desteklenmez. Değişmez v0.1.0 paketi yalnız Miniflux içindir.
+
+Hazır paketleri [GitHub Releases](https://github.com/Pastalikek65/rehearse/releases) sayfasından indir. Arşivi çıkar ve o sürümün `SHA256SUMS` dosyasıyla özetini karşılaştır. Paketler imzasızdır. [v1.0.0 verification.json](https://github.com/Pastalikek65/rehearse/releases/download/v1.0.0/verification.json) yalnızca tam olarak eşleşen arşiv ve test ortamı için kabul kanıtını gösterir; kaynak kod veya `BUILD.json` tek başına paket kabulü anlamına gelmez. Aşağıdaki `bin/` komutları kaynak koddan derleme içindir; hazır pakette Windows için `.\rehearse.exe`, Linux için `./rehearse` kullan.
 
 Kaynak koddan Windows'ta Go 1.27 ile derlemek için:
-
-Hazır paket için [v0.2.0 beta sürümünü](https://github.com/Pastalikek65/rehearse/releases/tag/v0.2.0) aç. [Windows ZIP](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/rehearse-0.2.0-windows-amd64.zip) veya [Linux tar.gz](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/rehearse-0.2.0-linux-amd64.tar.gz) dosyasını çıkar ve [SHA256SUMS](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/SHA256SUMS) ile özeti karşılaştır. Paketler imzasızdır. [verification.json](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/verification.json) her iki arşivin prova ve kabul kanıtını içerir. Gerçek sentetik [Forgejo HTML raporunu](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.html) ve [Miniflux HTML raporunu](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/miniflux-example-report.html) inceleyebilirsin. Aşağıdaki `bin/` komutları kaynak koddan derleme içindir; hazır pakette Windows için `.\rehearse.exe`, Linux için `./rehearse` kullan.
 
 ```powershell
 New-Item -ItemType Directory -Force bin | Out-Null
@@ -48,7 +46,7 @@ dener. Başarısızlıkta sıfırdan farklı çıkış kodu verir.
 
 Miniflux için kendi yedeğini kullanacaksan örnek JSON'u kopyala. PostgreSQL custom-format `.dump` dosyasını ve mevcut Miniflux hesabının ortam değişkeni referanslarını belirt. Parolayı JSON'a yazma. Yerel durum dizini özel yedek kopyası içerir; hesabına özel tut.
 
-Forgejo'nun v0.2.0 beta sentetik örneği [hazır pakette](../examples/forgejo/README.md) bulunur. Kaynak koddan derlediysen Linux'ta şöyle çalıştır:
+Forgejo'nun sentetik örneği [hazır pakette](../examples/forgejo/README.md) bulunur. Kaynak koddan derlediysen Linux'ta şöyle çalıştır:
 
 ```sh
 export REHEARSE_FORGEJO_EXAMPLE_TOKEN="$(cat examples/forgejo/fixture-read-token.txt)"
@@ -64,6 +62,6 @@ $env:REHEARSE_FORGEJO_EXAMPLE_TOKEN = (Get-Content -Raw examples/forgejo/fixture
 .\bin\rehearse.exe run --wsl-distro MyRehearsalWSL examples/forgejo/rehearse.json
 ```
 
-Token yalnızca sentetik örnek hesabı içindir. Gerçek sentetik [Forgejo HTML raporunu](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.html), [JSON raporunu](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.json) ve [arşiv doğrulama kanıtını](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/verification.json) incele.
+Token yalnızca sentetik örnek hesabı içindir. Arşivlenmiş v0.2.0 sentetik [Forgejo HTML raporunu](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.html), [JSON raporunu](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.json) ve o pakete ait [tarihsel doğrulama kaydını](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/verification.json) inceleyebilirsin. Bunlar yalnızca ilgili eski paketi açıklar; güncel paket kabulü için seçilen sürümün `verification.json` kaydını kullan.
 
-Destek ve güvenli sınırlar için [support.md](support.md), kesinti ve temizlik için [state-storage.md](state-storage.md), Forgejo arşiv ve kontrol kapsamı için [Forgejo bağdaştırıcısı](forgejo-adapter.md), geçmiş ve kurtarma komutlarının sınırları için [history-recovery.md](history-recovery.md) sayfalarına bak. Forgejo için yalnızca bu belgelenen sabit sürüm çifti desteklenir; üretim v1 yeterliliği beklemededir. Üretim volume'larını araca verme.
+Destek ve güvenli sınırlar için [support.md](support.md), kesinti ve temizlik için [state-storage.md](state-storage.md), Forgejo arşiv ve kontrol kapsamı için [Forgejo bağdaştırıcısı](forgejo-adapter.md), geçmiş ve kurtarma komutlarının sınırları için [history-recovery.md](history-recovery.md) sayfalarına bak. Herhangi bir sürümün paket kabul durumu için o sürümün `verification.json` kaydını incele. Üretim Docker volume'larını araca verme.

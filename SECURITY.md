@@ -4,7 +4,7 @@
 
 Use [GitHub private vulnerability reporting](https://github.com/Pastalikek65/rehearse/security/advisories/new). Include the version/commit, platform, a synthetic reproduction and the affected boundary. Do not attach a real backup, credential, private report directory or business records to a public issue.
 
-The development branch is currently maintained. A supported-release table will be added when releases exist; no stable v1 is available yet.
+The main branch and current stable release line receive security fixes. Older preview and beta artifacts are superseded unless a release notice explicitly says otherwise. Use the [releases page](https://github.com/Pastalikek65/rehearse/releases) and [support matrix](docs/support.md) to identify the current version and its supported environments. The exact artifact and environment results are recorded in that release's `verification.json`.
 
 ## Trust and data boundaries
 

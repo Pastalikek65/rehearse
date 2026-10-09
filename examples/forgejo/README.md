@@ -11,14 +11,12 @@ licenses and notices. See [the third-party inventory](../../THIRD_PARTY.md)
 and [fixture licensing metadata](fixture.json) for the embedded paths and
 license texts; the archive as a whole is not described by one license.
 
-The public [v0.2.0 beta](https://github.com/Pastalikek65/rehearse/releases/tag/v0.2.0)
-includes this example and the fixed Forgejo 15.0.9 → 16.0.5 adapter. Both
-downloadable packages passed its 25-check rehearsal and platform-specific
-interruption/recovery checks. Read the [exact package verification record](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/verification.json),
-the actual [Forgejo HTML report](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.html),
-and [Forgejo JSON report](https://github.com/Pastalikek65/rehearse/releases/download/v0.2.0/forgejo-example-report.json).
-The immutable v0.1.0 package is Miniflux-only. Production v1 qualification
-remains pending; see [support](../../docs/support.md).
+The fixed Forgejo 15.0.9 → 16.0.5 adapter is supported. Check the
+[releases page](https://github.com/Pastalikek65/rehearse/releases) for the
+current package and its `verification.json`; that record identifies which
+exact archive and environments were accepted. Earlier v0.1.0 and v0.2.0
+package results are historical and do not qualify a different build. See the
+[support matrix](../../docs/support.md) for the fixed support contract.
 
 From the repository root after building `bin/rehearse`:
 
@@ -40,9 +38,10 @@ Use `./bin/rehearse` after a source build, or `./rehearse` in the extracted
 Linux package (`.\bin\rehearse.exe` or `.\rehearse.exe` in Windows PowerShell).
 The runner uses fresh volumes and private networks and publishes no app port.
 It tests the baseline, migrates a separate target, and restores the original
-backup into a fresh old-version recovery instance. A passing Forgejo report
-contains 25 checks, nonempty matching SQL/Git fingerprints, and API content
-observations. Print it with `rehearse report --format json RUN_ID` or
+backup into a fresh old-version recovery instance. The Forgejo report contains
+checks, SQL/Git fingerprints, and API content observations. Consult the
+release verification record for the acceptance result of a specific package.
+Print a report with `rehearse report --format json RUN_ID` or
 `rehearse report --format html RUN_ID`. Replace the executable path above with
 `./rehearse` or `.\rehearse.exe` when this example is shipped in a package.
 

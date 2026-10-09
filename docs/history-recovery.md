@@ -1,6 +1,6 @@
 # Run history and dead-process recovery
 
-The `history` and `recover` commands are included in the public v0.2.0 beta. The immutable v0.1.0 package does not include them. Recovery only clears a verified dead local process lock; it does not resume the run or clean Docker resources.
+The supported CLI includes `history` and `recover`; the immutable v0.1.0 package does not include them. Recovery only clears a verified dead local process lock; it does not resume the run or clean Docker resources.
 
 Use history to inspect the local Rehearse run store without reading reports or backup contents:
 
@@ -26,7 +26,7 @@ The claim uses the stable `run.lock.recovery` directory so another `recover` com
 
 Recovery fails closed for a live process, unknown process state or permissions, a foreign host, malformed metadata, a changed claim, or a concurrent new lock holder. PID reuse is treated conservatively as a live process. A claim that cannot be verified is preserved or restored so Rehearse does not silently take over an uncertain lock. There is no age-based stale-lock rule or force option.
 
-Run-lock creation, release, and recovery are serialized across current Rehearse processes by a persistent kernel-locked `.lock-mutation.guard` file in each run directory. Do not remove or replace that guard file. During a beta upgrade, stop older Rehearse processes before using the new version; mixed-version lock operations are not supported.
+Run-lock creation, release, and recovery are serialized across current Rehearse processes by a persistent kernel-locked `.lock-mutation.guard` file in each run directory. Do not remove or replace that guard file. Before upgrading Rehearse, stop its older processes; mixed-version lock operations are not supported.
 
 Recovery does not resume the rehearsal, mark it passed, or remove Docker resources. A run with a pending backup intent remains in staging. After a successful recovery, inspect history and use the existing cleanup command separately when appropriate:
 

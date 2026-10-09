@@ -99,7 +99,11 @@ authenticated unread API request with the expected synthetic entry ID, and
 live phase-boundary verification. Separately, the complete three-phase CLI
 rehearsal has passed on a disposable WSL2 runtime, including target migration,
 target API/data checks, independent source-version recovery, and owned cleanup.
-That is evidence for one Windows-host/WSL runtime execution; Linux and packaged
-CLI qualification remain pending. The negative-control migration failure is
-a separate qualification case. The nullable fields on a removed row cover
-storage/projection edges; they do not establish API behavior for SQL `NULL`.
+The v0.2.0 Windows and Linux packages also passed that workflow in the
+environments recorded in their release verification. Ubuntu CI exercises a
+separately built package. These are historical fixture results; they do not
+qualify a different source revision, archive, or environment. Consult the
+selected release's `verification.json` for exact artifact acceptance. The
+negative-control migration failure is a separate qualification case. The
+nullable fields on a removed row cover storage/projection edges; they do not
+establish API behavior for SQL `NULL`.
